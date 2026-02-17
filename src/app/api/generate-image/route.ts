@@ -1,0 +1,54 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// Nano Banana = Gemini 2.5 Flash Image model
+const NANOBANANA_MODEL = process.env.NANOBANANA_MODEL || 'gemini-2.5-flash-preview-05-20';
+
+export async function POST(request: NextRequest) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 503 });
+  }
+
+  let prompt: string;
+  try {
+    const body = await request.json();
+    prompt = body.prompt;
+    if (!prompt || typeof prompt !== 'string') {
+      return NextResponse.json({ error: 'prompt is required' }, { status: 400 });
+    }
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: NANOBANANA_MODEL });
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        // @ts-expect-error responseModalities is supported by image-capable models
+        responseModalities: ['image', 'text'],
+      },
+    });
+
+    const response = result.response;
+    const parts = response.candidates?.[0]?.content?.parts ?? [];
+
+    for (const part of parts) {
+      if (part.inlineData) {
+        return NextResponse.json({
+          imageData: part.inlineData.data,
+          mimeType: part.inlineData.mimeType,
+        });
+      }
+    }
+
+    return NextResponse.json({ error: 'No image in response' }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Image generation failed';
+    console.error('[generate-image]', message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

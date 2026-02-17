@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { VisualizationSession, VisualizationItem } from '@/types/product';
 import { Badge } from '@/components/ui/badge';
 
@@ -111,6 +112,46 @@ function ItemCard({
   onSelect: () => void;
   compact: boolean;
 }) {
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
+  const [imgLoading, setImgLoading] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    if (!item.imagePrompt) return;
+
+    let cancelled = false;
+    setImgLoading(true);
+    setImgSrc(null);
+    setImgError(false);
+
+    fetch('/api/generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: item.imagePrompt }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data.imageData && data.mimeType) {
+          setImgSrc(`data:${data.mimeType};base64,${data.imageData}`);
+        } else {
+          setImgError(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setImgError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setImgLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item.id, item.imagePrompt]);
+
+  const imageHeight = compact ? 'h-24' : 'h-32';
+
   return (
     <button
       onClick={onSelect}
@@ -126,15 +167,60 @@ function ItemCard({
         </div>
       )}
 
-      {/* Placeholder image */}
-      <div
-        className={`mb-3 flex items-center justify-center rounded-lg bg-gradient-to-br ${item.imagePlaceholder} ${
-          compact ? 'h-24' : 'h-32'
-        }`}
-      >
-        <span className="text-2xl opacity-50">
-          {'\u{1F4E6}'}
-        </span>
+      {/* Image area */}
+      <div className={`mb-3 overflow-hidden rounded-lg ${imageHeight}`}>
+        {imgLoading && (
+          <div
+            className={`flex items-center justify-center w-full h-full bg-gradient-to-br ${item.imagePlaceholder}`}
+          >
+            <div className="flex flex-col items-center gap-1">
+              <svg
+                className="h-5 w-5 animate-spin text-white/70"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+              {!compact && (
+                <span className="text-xs text-white/70">Generating...</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!imgLoading && imgSrc && (
+          <img
+            src={imgSrc}
+            alt={item.name}
+            className="w-full h-full object-cover"
+          />
+        )}
+
+        {!imgLoading && !imgSrc && (
+          /* Placeholder fallback when no API key or generation failed */
+          <div
+            className={`flex items-center justify-center w-full h-full bg-gradient-to-br ${item.imagePlaceholder}`}
+          >
+            {imgError ? (
+              <span className="text-xl opacity-40">{'\u{1F4E6}'}</span>
+            ) : (
+              <span className="text-2xl opacity-50">{'\u{1F4E6}'}</span>
+            )}
+          </div>
+        )}
       </div>
 
       <h4 className={`font-semibold text-gray-900 ${compact ? 'text-xs' : 'text-sm'}`}>
