@@ -1,0 +1,216 @@
+// ─── Product Request Types ───────────────────────────────────────────────────
+
+export interface ProductRequest {
+  id: string;
+  description: string;
+  size?: string;
+  material?: string;
+  colors?: string[];
+  customization: CustomizationInput;
+  category?: ProductCategory;
+  priceTarget?: PriceTarget;
+  moq?: number;
+  rawText?: string;
+  createdAt: string;
+}
+
+export interface CustomizationInput {
+  logo?: LogoSpec;
+  features?: string[];
+  colorVariations?: string[];
+}
+
+export interface LogoSpec {
+  type: 'embossing' | 'printing' | 'engraving' | 'label' | 'rubber-tag' | 'heat-press';
+  description?: string;
+  placement?: string;
+}
+
+export type ProductCategory =
+  | 'bags-leather'
+  | 'packaging-paper'
+  | 'packaging-box'
+  | 'apparel'
+  | 'accessories'
+  | 'homeware'
+  | 'electronics'
+  | 'cosmetics'
+  | 'food-packaging'
+  | 'other';
+
+export interface PriceTarget {
+  min?: number;
+  max?: number;
+  currency: string;
+}
+
+// ─── Customization Level Types ───────────────────────────────────────────────
+
+export type CustomizationLevel = 1 | 2 | 3 | 4 | 5;
+
+export interface CustomizationLevelInfo {
+  level: CustomizationLevel;
+  name: string;
+  emoji: string;
+  coreDefinition: string;
+  typicalForms: string[];
+  keyRisk: string;
+  setupFee: string;
+  moqImpact: string;
+  costBehavior: string;
+  reworkCost: string;
+  timelineRisk: string;
+  supplierAvailability: string;
+  feasibility: string;
+  developmentTime: string;
+  bestFor: string;
+  earlyWarningSignal: string;
+}
+
+export interface CustomizationClassification {
+  level: CustomizationLevel;
+  levelInfo: CustomizationLevelInfo;
+  customizationType: string;
+  constraints: CustomizationConstraint[];
+  feasibilityScore: number; // 0-100
+  warnings: FeasibilityWarning[];
+  alternatives: AlternativeOption[];
+}
+
+export interface CustomizationConstraint {
+  type: 'moq' | 'price' | 'timeline' | 'supplier' | 'tooling';
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  currentValue: string;
+  requiredValue: string;
+}
+
+export interface FeasibilityWarning {
+  id: string;
+  type: 'moq-mismatch' | 'price-mismatch' | 'timeline-risk' | 'supplier-limited' | 'tooling-required';
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+  suggestion?: string;
+}
+
+export interface AlternativeOption {
+  id: string;
+  description: string;
+  negotiableOn: ('customization-type' | 'customization-level' | 'price' | 'moq')[];
+  tradeoffs: string[];
+  estimatedSaving?: string;
+  newLevel?: CustomizationLevel;
+  newMoq?: number;
+  newPrice?: PriceTarget;
+}
+
+// ─── Visualization Types ─────────────────────────────────────────────────────
+
+export interface VisualizationItem {
+  id: string;
+  name: string;
+  description: string;
+  imagePrompt: string;
+  imagePlaceholder: string;
+  specs: Record<string, string>;
+  estimatedPrice?: PriceTarget;
+  estimatedMoq?: number;
+  customizationLevel?: CustomizationLevel;
+  selected?: boolean;
+}
+
+export interface VisualizationLevel {
+  level: number; // 0, 1, 2
+  items: VisualizationItem[];
+  parentItemId?: string;
+}
+
+export interface VisualizationSession {
+  id: string;
+  requestId: string;
+  levels: VisualizationLevel[];
+  currentLevel: number;
+  selectedPath: string[]; // chain of selected item IDs
+  phase: 'v1' | 'v2';
+  finalSelection?: VisualizationItem;
+}
+
+// ─── Preliminary Quote Types ─────────────────────────────────────────────────
+
+export interface PreliminaryQuote {
+  id: string;
+  requestId: string;
+  selectedItem: VisualizationItem;
+  customization: CustomizationClassification;
+  unitPrice: PriceTarget;
+  moq: number;
+  setupFees: number;
+  leadTime: string;
+  notes: string[];
+  alternatives: AlternativeQuote[];
+}
+
+export interface AlternativeQuote {
+  id: string;
+  description: string;
+  unitPrice: PriceTarget;
+  moq: number;
+  tradeoffs: string[];
+  visualizationItem?: VisualizationItem;
+}
+
+// ─── Knowledge Base Types ────────────────────────────────────────────────────
+
+export interface KnowledgeEntry {
+  id: string;
+  type: 'request-pattern' | 'supplier-constraint' | 'tradeoff' | 'pricing-insight' | 'moq-data';
+  category: ProductCategory;
+  content: string;
+  metadata: Record<string, string>;
+  source: 'conversation' | 'manual' | 'upload';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KnowledgeBase {
+  entries: KnowledgeEntry[];
+  lastUpdated: string;
+}
+
+// ─── Flow State Types ────────────────────────────────────────────────────────
+
+export type FlowStep =
+  | 'request-entry'
+  | 'request-review'
+  | 'visualization-v1'
+  | 'customization-analysis'
+  | 'visualization-v2'
+  | 'preliminary-quote';
+
+export interface FlowState {
+  currentStep: FlowStep;
+  request?: ProductRequest;
+  requestJson?: ProductRequestJson;
+  visualizationSession?: VisualizationSession;
+  customization?: CustomizationClassification;
+  quote?: PreliminaryQuote;
+}
+
+export interface ProductRequestJson {
+  product: {
+    description: string;
+    category: ProductCategory;
+    size: string;
+    material: string;
+    colors: string[];
+  };
+  customization: {
+    logo: LogoSpec | null;
+    features: string[];
+    colorVariations: string[];
+  };
+  requirements: {
+    priceTarget: PriceTarget | null;
+    moq: number | null;
+  };
+}
