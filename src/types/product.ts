@@ -181,6 +181,42 @@ export interface KnowledgeBase {
   lastUpdated: string;
 }
 
+// ─── PGE (Prompt Generation Engine) Types ────────────────────────────────────
+
+export interface ClarificationQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  allowCustom?: boolean;
+  required?: boolean;
+}
+
+export interface ImagePromptVariant {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  anchoredAspects: string[];
+  flexibleAspects: string[];
+}
+
+export interface GeneratedImageVariant extends ImagePromptVariant {
+  placeholderGradient: string;
+  imageData?: string;
+  imageMimeType?: string;
+  isLoading: boolean;
+  hasError: boolean;
+  selected: boolean;
+}
+
+export type PGEFlowStep =
+  | 'product-input'
+  | 'clarification'
+  | 'l0-variants'
+  | 'l1-variants'
+  | 'l2-variants'
+  | 'complete';
+
 // ─── Flow State Types ────────────────────────────────────────────────────────
 
 export type FlowStep =
