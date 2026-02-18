@@ -112,6 +112,10 @@ export interface VisualizationItem {
   description: string;
   imagePrompt: string;
   imagePlaceholder: string;
+  /** Base64-encoded image data returned by the Nano Banana (Gemini) API */
+  generatedImageData?: string;
+  /** MIME type of the generated image (e.g. "image/png") */
+  generatedImageMimeType?: string;
   specs: Record<string, string>;
   estimatedPrice?: PriceTarget;
   estimatedMoq?: number;
