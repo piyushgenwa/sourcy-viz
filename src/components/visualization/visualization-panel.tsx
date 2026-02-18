@@ -114,7 +114,7 @@ function ItemCard({
 }) {
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [imgLoading, setImgLoading] = useState(false);
-  const [imgError, setImgError] = useState(false);
+  const [imgError, setImgError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!item.imagePrompt) return;
@@ -122,24 +122,28 @@ function ItemCard({
     let cancelled = false;
     setImgLoading(true);
     setImgSrc(null);
-    setImgError(false);
+    setImgError(null);
 
     fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: item.imagePrompt }),
     })
-      .then((res) => res.json())
-      .then((data) => {
+      .then(async (res) => {
+        const data = await res.json();
         if (cancelled) return;
         if (data.imageData && data.mimeType) {
           setImgSrc(`data:${data.mimeType};base64,${data.imageData}`);
         } else {
-          setImgError(true);
+          setImgError(data.error || 'No image returned');
+          console.error('[ItemCard] image gen failed:', data);
         }
       })
-      .catch(() => {
-        if (!cancelled) setImgError(true);
+      .catch((err) => {
+        if (!cancelled) {
+          setImgError(err.message || 'Network error');
+          console.error('[ItemCard] fetch error:', err);
+        }
       })
       .finally(() => {
         if (!cancelled) setImgLoading(false);
@@ -212,12 +216,11 @@ function ItemCard({
         {!imgLoading && !imgSrc && (
           /* Placeholder fallback when no API key or generation failed */
           <div
-            className={`flex items-center justify-center w-full h-full bg-gradient-to-br ${item.imagePlaceholder}`}
+            className={`flex flex-col items-center justify-center w-full h-full bg-gradient-to-br ${item.imagePlaceholder}`}
           >
-            {imgError ? (
-              <span className="text-xl opacity-40">{'\u{1F4E6}'}</span>
-            ) : (
-              <span className="text-2xl opacity-50">{'\u{1F4E6}'}</span>
+            <span className={imgError ? 'text-xl opacity-40' : 'text-2xl opacity-50'}>{'\u{1F4E6}'}</span>
+            {imgError && !compact && (
+              <span className="mt-1 text-xs text-white/60 text-center px-1 line-clamp-1">{imgError}</span>
             )}
           </div>
         )}
