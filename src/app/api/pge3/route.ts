@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { stripQuantityFromDescription } from '@/lib/strip-quantity';
 
 const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.0-flash';
 
 const PGE3_SYSTEM = `You are an expert AI image prompt engineer specializing in product design refinement.
 
 The user has selected a specific product design direction. Generate exactly 3 refined variation prompts that explore deeper nuances within that anchored design — not radical departures.
+
+IMPORTANT: Do NOT include quantity or order volume (e.g. "500 units", "MOQ 1000") in any prompt. Quantity is a sourcing constraint, not a visual attribute.
 
 ANCHOR (must be preserved from the selected design):
 - Core design language and aesthetic direction
@@ -86,7 +89,8 @@ export async function POST(request: NextRequest) {
       systemInstruction: PGE3_SYSTEM,
     });
 
-    const prompt = `Product: "${productDescription}"${answersText}
+    const visualDescription = stripQuantityFromDescription(productDescription);
+    const prompt = `Product: "${visualDescription}"${answersText}
 
 Selected design ("${selectedName}"): ${selectedPrompt}
 
