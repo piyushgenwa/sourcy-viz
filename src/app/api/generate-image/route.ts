@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 // Nano Banana = Gemini 2.5 Flash Image model
-const NANOBANANA_MODEL = process.env.NANOBANANA_MODEL || 'gemini-2.5-flash-preview-05-20';
+const NANOBANANA_MODEL = process.env.NANOBANANA_MODEL || 'gemini-2.5-flash-image-preview';
+
+// Extend Vercel function timeout – image generation can take 20-40s
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -22,22 +25,20 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: NANOBANANA_MODEL });
+    const ai = new GoogleGenAI({ apiKey });
 
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        // @ts-expect-error responseModalities is supported by image-capable models
-        responseModalities: ['image', 'text'],
+    const response = await ai.models.generateContent({
+      model: NANOBANANA_MODEL,
+      contents: prompt,
+      config: {
+        responseModalities: ['IMAGE', 'TEXT'],
       },
     });
 
-    const response = result.response;
     const parts = response.candidates?.[0]?.content?.parts ?? [];
 
     for (const part of parts) {
-      if (part.inlineData) {
+      if (part.inlineData?.data && part.inlineData?.mimeType) {
         return NextResponse.json({
           imageData: part.inlineData.data,
           mimeType: part.inlineData.mimeType,
