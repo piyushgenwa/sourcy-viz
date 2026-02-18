@@ -4,8 +4,9 @@ import { NextRequest } from 'next/server';
 // (Serverless functions are capped at 10s on Hobby, too short for image gen)
 export const runtime = 'edge';
 
-// Nano Banana = Gemini 2.5 Flash Image model
-const NANOBANANA_MODEL = process.env.NANOBANANA_MODEL || 'gemini-2.5-flash-image-preview';
+// Nano Banana Pro = Gemini 3 Pro Image model
+// (gemini-2.5-flash-image-preview was shut down Jan 15 2026)
+const NANOBANANA_MODEL = process.env.NANOBANANA_MODEL || 'gemini-3-pro-image-preview';
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export async function POST(request: NextRequest) {
