@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { stripQuantityFromDescription } from '@/lib/strip-quantity';
 
 const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.0-flash';
 
 const PGE1_SYSTEM = `You are a product design expert helping create product visualization images for manufacturing.
 
 Analyze the user's product description and identify 3–5 critical pieces of missing visual information needed to generate accurate, diverse product images.
+
+IMPORTANT: Ignore any quantity or order volume information (e.g. "500 units", "MOQ 1000"). Quantity is a sourcing constraint, not a visual parameter.
 
 Generate focused questions targeting these visual dimensions ONLY:
 - Aesthetic style and design language (modern vs classic, minimal vs ornate)
@@ -56,8 +59,9 @@ export async function POST(request: NextRequest) {
       systemInstruction: PGE1_SYSTEM,
     });
 
+    const visualDescription = stripQuantityFromDescription(productDescription);
     const result = await model.generateContent(
-      `Product description: "${productDescription}"\n\nGenerate clarification questions to fill critical visual gaps.`
+      `Product description: "${visualDescription}"\n\nGenerate clarification questions to fill critical visual gaps.`
     );
 
     const text = result.response.text().trim();

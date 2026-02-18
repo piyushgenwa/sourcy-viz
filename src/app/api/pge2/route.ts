@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { stripQuantityFromDescription } from '@/lib/strip-quantity';
 
 const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.0-flash';
 
 const PGE2_SYSTEM = `You are an expert AI image prompt engineer specializing in product photography for manufacturing and sourcing.
 
 Given a product description and optional user clarifications, create exactly 5 distinct image generation prompts. Each must produce a clearly different visual result while staying true to the core product identity.
+
+IMPORTANT: Do NOT include quantity or order volume (e.g. "500 units", "MOQ 1000") in any prompt. Quantity is a sourcing constraint, not a visual attribute.
 
 ANCHORING REQUIREMENTS (keep consistent across all 5):
 - Core product type, function, and identity
@@ -70,8 +73,9 @@ export async function POST(request: NextRequest) {
       systemInstruction: PGE2_SYSTEM,
     });
 
+    const visualDescription = stripQuantityFromDescription(productDescription);
     const result = await model.generateContent(
-      `Product description: "${productDescription}"${answersText}\n\nGenerate exactly 5 distinct image generation prompts.`
+      `Product description: "${visualDescription}"${answersText}\n\nGenerate exactly 5 distinct image generation prompts.`
     );
 
     const text = result.response.text().trim();

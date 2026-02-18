@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 
-// Nano Banana = Gemini 2.5 Flash Image model
-const NANOBANANA_MODEL = process.env.NANOBANANA_MODEL || 'gemini-2.5-flash-image';
+// Image model — configurable via GEMINI_IMAGE_MODEL env var (falls back to legacy NANOBANANA_MODEL)
+const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || process.env.NANOBANANA_MODEL || 'gemini-2.5-flash-image';
 
 export async function POST(request: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: NANOBANANA_MODEL,
+      model: IMAGE_MODEL,
       contents: prompt,
     });
 
