@@ -76,9 +76,9 @@ function ViewCard({ view, onImageLoaded, onImageError }: ViewCardProps) {
   };
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 ease-out hover:scale-105 hover:z-10 hover:shadow-xl">
       {/* Image area */}
-      <div className="relative h-64 w-full overflow-hidden bg-gray-50">
+      <div className="relative h-64 w-full overflow-hidden rounded-t-xl bg-gray-50">
         {view.imageData ? (
           <img
             src={`data:${view.imageMimeType};base64,${view.imageData}`}
