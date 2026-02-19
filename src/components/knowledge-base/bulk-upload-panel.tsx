@@ -25,8 +25,10 @@ const TYPE_VARIANTS: Record<
 
 interface ParseStats {
   totalConversations: number;
+  totalChunksProcessed: number;
   totalEntriesExtracted: number;
   detectedLanguages: string[];
+  warnings: string[];
 }
 
 interface BulkUploadPanelProps {
@@ -252,17 +254,31 @@ export function BulkUploadPanel({ onImport, onClose }: BulkUploadPanelProps) {
         <div className="space-y-3">
           {/* Stats */}
           {stats && (
-            <div className="flex flex-wrap gap-3 rounded bg-white border border-purple-100 px-3 py-2">
-              <span className="text-xs text-gray-600">
-                <span className="font-medium text-gray-900">{stats.totalConversations}</span> conversations parsed
-              </span>
-              <span className="text-xs text-gray-600">
-                <span className="font-medium text-gray-900">{stats.totalEntriesExtracted}</span> insights extracted
-              </span>
-              {stats.detectedLanguages.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-3 rounded bg-white border border-purple-100 px-3 py-2">
                 <span className="text-xs text-gray-600">
-                  Languages: <span className="font-medium text-gray-900">{stats.detectedLanguages.join(', ')}</span>
+                  <span className="font-medium text-gray-900">{stats.totalConversations}</span> file{stats.totalConversations !== 1 ? 's' : ''}
                 </span>
+                {stats.totalChunksProcessed > stats.totalConversations && (
+                  <span className="text-xs text-gray-600">
+                    <span className="font-medium text-gray-900">{stats.totalChunksProcessed}</span> chunks processed
+                  </span>
+                )}
+                <span className="text-xs text-gray-600">
+                  <span className="font-medium text-gray-900">{stats.totalEntriesExtracted}</span> insights extracted
+                </span>
+                {stats.detectedLanguages.length > 0 && (
+                  <span className="text-xs text-gray-600">
+                    Languages: <span className="font-medium text-gray-900">{stats.detectedLanguages.join(', ')}</span>
+                  </span>
+                )}
+              </div>
+              {stats.warnings.length > 0 && (
+                <div className="rounded bg-yellow-50 border border-yellow-200 px-3 py-2 space-y-0.5">
+                  {stats.warnings.map((w, idx) => (
+                    <p key={idx} className="text-xs text-yellow-800">{w}</p>
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -270,6 +286,7 @@ export function BulkUploadPanel({ onImport, onClose }: BulkUploadPanelProps) {
           {parsedEntries.length === 0 ? (
             <p className="text-xs text-gray-500 text-center py-4">
               No structured insights could be extracted from these conversations.
+              {stats?.warnings.length ? ' Check the warnings above for details.' : ''}
             </p>
           ) : (
             <>

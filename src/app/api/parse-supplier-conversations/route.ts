@@ -5,13 +5,43 @@ import { v4 as uuid } from 'uuid';
 
 const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.0-flash';
 
+/**
+ * Large files (e.g. a dump of many conversations) are split into chunks so that
+ * each Gemini extraction call can produce a complete JSON response within the
+ * output token limit. Splits at natural line boundaries.
+ */
+const MAX_CHUNK_CHARS = 15_000;
+
+function splitIntoChunks(text: string): string[] {
+  if (text.length <= MAX_CHUNK_CHARS) return [text];
+
+  const chunks: string[] = [];
+  let remaining = text;
+
+  while (remaining.length > MAX_CHUNK_CHARS) {
+    // Prefer splitting at a double newline, then a single newline
+    let splitAt = remaining.lastIndexOf('\n\n', MAX_CHUNK_CHARS);
+    if (splitAt < MAX_CHUNK_CHARS / 2) {
+      splitAt = remaining.lastIndexOf('\n', MAX_CHUNK_CHARS);
+    }
+    if (splitAt < MAX_CHUNK_CHARS / 2) {
+      splitAt = MAX_CHUNK_CHARS;
+    }
+    chunks.push(remaining.slice(0, splitAt).trim());
+    remaining = remaining.slice(splitAt).trim();
+  }
+
+  if (remaining.length > 0) chunks.push(remaining);
+  return chunks.filter((c) => c.length > 100); // skip near-empty trailing pieces
+}
+
 const EXTRACT_SYSTEM = `You are an expert sourcing analyst who reads raw supplier-buyer conversations (which may be in Chinese, English, or mixed) and extracts structured knowledge for a product sourcing knowledge base.
 
 ## Your Task
 Given a supplier conversation text, you must:
 1. Detect the language. If the conversation is in Chinese (or other non-English), translate all relevant content to English.
 2. Extract every distinct sourcing insight from the conversation.
-3. Return a JSON array of knowledge entries.
+3. Return a JSON object.
 
 ## Knowledge Entry Types
 - "supplier-constraint": Hard limits a supplier states (MOQ floors, material restrictions, lead time minimums, capabilities they don't have)
@@ -33,7 +63,7 @@ Return ONLY a valid JSON object (no markdown, no code fences) with this shape:
       "category": "<one of the categories above>",
       "content": "<Clear English sentence describing the insight>",
       "metadata": { "<key>": "<value>", ... },
-      "originalText": "<The original source language excerpt that yielded this insight, if non-English; omit if already English>"
+      "originalText": "<The original source language excerpt, if non-English; omit if already English>"
     }
   ]
 }
@@ -76,6 +106,29 @@ Return ONLY a valid JSON object (no markdown, no code fences):
 - Sort by confidence descending (highest confidence first)
 - originalText should be from the first occurrence if non-English, omit if English`;
 
+type RawEntry = {
+  sourceIndex: number;
+  type: KnowledgeEntry['type'];
+  category: ProductCategory;
+  content: string;
+  metadata: Record<string, string>;
+  originalText?: string;
+};
+
+/** Parse a Gemini response text, stripping code fences if present. Returns null on failure. */
+function parseGeminiJson<T>(raw: string): T | null {
+  try {
+    const clean = raw
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+    return JSON.parse(clean) as T;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -91,7 +144,10 @@ export async function POST(req: NextRequest) {
 
   const { conversations } = body;
   if (!Array.isArray(conversations) || conversations.length === 0) {
-    return NextResponse.json({ error: 'conversations must be a non-empty array of strings' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'conversations must be a non-empty array of strings' },
+      { status: 400 }
+    );
   }
 
   if (conversations.length > 20) {
@@ -101,76 +157,82 @@ export async function POST(req: NextRequest) {
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: TEXT_MODEL });
 
-  // Step 1: Extract raw entries from each conversation
-  const allRawEntries: Array<{
-    sourceIndex: number;
-    type: KnowledgeEntry['type'];
-    category: ProductCategory;
-    content: string;
-    metadata: Record<string, string>;
-    originalText?: string;
-  }> = [];
-
+  // ── Step 1: Extract raw entries from each conversation (chunking large texts) ──
+  const allRawEntries: RawEntry[] = [];
   const detectedLanguages: string[] = [];
+  const extractionWarnings: string[] = [];
+  let totalChunksProcessed = 0;
 
   for (let i = 0; i < conversations.length; i++) {
-    const conversation = conversations[i].trim();
-    if (!conversation) continue;
+    const text = conversations[i].trim();
+    if (!text) continue;
 
-    try {
-      const result = await model.generateContent({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: `${EXTRACT_SYSTEM}\n\n---\nSUPPLIER CONVERSATION:\n${conversation}`,
-              },
-            ],
+    const chunks = splitIntoChunks(text);
+
+    for (let c = 0; c < chunks.length; c++) {
+      const chunk = chunks[c];
+      totalChunksProcessed++;
+
+      try {
+        const result = await model.generateContent({
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: `${EXTRACT_SYSTEM}\n\n---\nSUPPLIER CONVERSATION${chunks.length > 1 ? ` (part ${c + 1}/${chunks.length})` : ''}:\n${chunk}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            // Raised from 4096 – a 15 KB Chinese conversation can produce many entries
+            maxOutputTokens: 8192,
           },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 4096,
-        },
-      });
+        });
 
-      const raw = result.response.text().trim();
-      // Strip markdown code fences if present
-      const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        const parsed = parseGeminiJson<{
+          detectedLanguage: string;
+          entries: Array<{
+            type: KnowledgeEntry['type'];
+            category: ProductCategory;
+            content: string;
+            metadata: Record<string, string>;
+            originalText?: string;
+          }>;
+        }>(result.response.text());
 
-      const parsed = JSON.parse(clean) as {
-        detectedLanguage: string;
-        entries: Array<{
-          type: KnowledgeEntry['type'];
-          category: ProductCategory;
-          content: string;
-          metadata: Record<string, string>;
-          originalText?: string;
-        }>;
-      };
+        if (!parsed) {
+          extractionWarnings.push(
+            `File ${i + 1} chunk ${c + 1}: AI returned unparseable JSON – skipped`
+          );
+          continue;
+        }
 
-      if (parsed.detectedLanguage) {
-        detectedLanguages.push(parsed.detectedLanguage);
-      }
+        if (parsed.detectedLanguage) {
+          detectedLanguages.push(parsed.detectedLanguage);
+        }
 
-      if (Array.isArray(parsed.entries)) {
-        for (const entry of parsed.entries) {
-          if (entry.type && entry.category && entry.content) {
-            allRawEntries.push({
-              sourceIndex: i,
-              type: entry.type,
-              category: entry.category,
-              content: entry.content,
-              metadata: entry.metadata || {},
-              originalText: entry.originalText,
-            });
+        if (Array.isArray(parsed.entries)) {
+          for (const entry of parsed.entries) {
+            if (entry.type && entry.category && entry.content) {
+              allRawEntries.push({
+                sourceIndex: i,
+                type: entry.type,
+                category: entry.category,
+                content: entry.content,
+                metadata: entry.metadata || {},
+                originalText: entry.originalText,
+              });
+            }
           }
         }
+      } catch (err) {
+        extractionWarnings.push(
+          `File ${i + 1} chunk ${c + 1}: extraction failed – ${err instanceof Error ? err.message : String(err)}`
+        );
       }
-    } catch (err) {
-      // Continue processing remaining conversations even if one fails
-      console.error(`Failed to parse conversation ${i}:`, err);
     }
   }
 
@@ -179,14 +241,17 @@ export async function POST(req: NextRequest) {
       entries: [],
       stats: {
         totalConversations: conversations.length,
+        totalChunksProcessed,
         totalEntriesExtracted: 0,
         detectedLanguages: [...new Set(detectedLanguages)],
+        warnings: extractionWarnings,
       },
     });
   }
 
-  // Step 2: Deduplicate and assign confidence scores
+  // ── Step 2: Deduplicate and assign confidence scores ──
   const totalConversations = conversations.length;
+
   let finalEntries: Array<{
     type: KnowledgeEntry['type'];
     category: ProductCategory;
@@ -213,11 +278,7 @@ export async function POST(req: NextRequest) {
       contents: [
         {
           role: 'user',
-          parts: [
-            {
-              text: `${DEDUPLICATE_SYSTEM}\n\n---\n${dedupePayload}`,
-            },
-          ],
+          parts: [{ text: `${DEDUPLICATE_SYSTEM}\n\n---\n${dedupePayload}` }],
         },
       ],
       generationConfig: {
@@ -226,23 +287,25 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const raw = dedupeResult.response.text().trim();
-    const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-    const parsed = JSON.parse(clean) as {
-      entries: typeof finalEntries;
-    };
+    const parsed = parseGeminiJson<{ entries: typeof finalEntries }>(
+      dedupeResult.response.text()
+    );
 
-    if (Array.isArray(parsed.entries)) {
+    if (parsed && Array.isArray(parsed.entries)) {
       finalEntries = parsed.entries.filter(
         (e) => e.type && e.category && e.content && typeof e.confidence === 'number'
       );
+    } else {
+      throw new Error('Deduplicate step returned unparseable JSON');
     }
   } catch (err) {
-    console.error('Deduplication step failed, falling back to raw entries:', err);
-    // Fall back: count occurrences by tracking unique source indices per content fingerprint
+    extractionWarnings.push(
+      `Deduplication failed (${err instanceof Error ? err.message : String(err)}), using raw entries`
+    );
+    // Fall back: fingerprint-based deduplication
     const fingerprints = new Map<
       string,
-      { entry: (typeof allRawEntries)[0]; sourceIndices: Set<number> }
+      { entry: RawEntry; sourceIndices: Set<number> }
     >();
     for (const entry of allRawEntries) {
       const key = `${entry.type}|${entry.category}|${entry.content.toLowerCase().slice(0, 80)}`;
@@ -265,7 +328,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Step 3: Stamp with IDs and timestamps
+  // ── Step 3: Stamp with IDs and timestamps ──
   const now = new Date().toISOString();
   const resultEntries: KnowledgeEntry[] = finalEntries.map((e) => ({
     id: uuid(),
@@ -285,8 +348,10 @@ export async function POST(req: NextRequest) {
     entries: resultEntries,
     stats: {
       totalConversations,
+      totalChunksProcessed,
       totalEntriesExtracted: resultEntries.length,
       detectedLanguages: [...new Set(detectedLanguages)],
+      warnings: extractionWarnings,
     },
   });
 }
