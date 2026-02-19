@@ -296,7 +296,8 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
     set({
       l2Variants: l2Variants.map((v) => ({ ...v, selected: v.id === id })),
       selectedL2: selected,
-      step: 'complete',
+      feasibilityResult: null,
+      step: 'feasibility-input',
     });
   },
 

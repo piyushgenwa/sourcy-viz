@@ -8,19 +8,17 @@ const STEPS: { key: PGEFlowStep; label: string; icon: string }[] = [
   { key: 'l0-variants', label: 'Explore', icon: '3' },
   { key: 'l1-variants', label: 'Refine', icon: '4' },
   { key: 'l2-variants', label: 'Detail', icon: '5' },
-  { key: 'complete', label: 'Done', icon: '6' },
-  { key: 'feasibility-input', label: 'Feasibility', icon: '7' },
-  { key: 'feasibility-result', label: 'Report', icon: '8' },
+  { key: 'feasibility-input', label: 'Feasibility', icon: '6' },
+  { key: 'feasibility-result', label: 'Report', icon: '7' },
 ];
 
-// Map each step to its "visual index" for progress calculation
 const STEP_ORDER: PGEFlowStep[] = [
   'product-input',
   'clarification',
   'l0-variants',
   'l1-variants',
   'l2-variants',
-  'complete',
+  'complete',           // kept in type but skipped visually
   'feasibility-input',
   'feasibility-result',
 ];
@@ -28,11 +26,14 @@ const STEP_ORDER: PGEFlowStep[] = [
 export function PGEStepIndicator({ currentStep }: { currentStep: PGEFlowStep }) {
   const currentIndex = STEP_ORDER.indexOf(currentStep);
 
+  // Map visual step index from logical step order (skip 'complete' slot index 5)
+  const visualIndex = currentIndex > 5 ? currentIndex - 1 : currentIndex;
+
   return (
     <div className="flex items-center gap-1 overflow-x-auto px-4 py-3">
       {STEPS.map((step, i) => {
-        const isActive = i === currentIndex;
-        const isCompleted = i < currentIndex;
+        const isActive = i === visualIndex;
+        const isCompleted = i < visualIndex;
 
         return (
           <div key={step.key} className="flex items-center">
@@ -58,7 +59,7 @@ export function PGEStepIndicator({ currentStep }: { currentStep: PGEFlowStep }) 
             </div>
             {i < STEPS.length - 1 && (
               <div
-                className={`mx-1 h-0.5 w-6 sm:w-8 ${
+                className={`mx-1 h-0.5 w-6 sm:w-10 ${
                   isCompleted ? 'bg-green-500' : 'bg-gray-200'
                 }`}
               />
