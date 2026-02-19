@@ -114,7 +114,8 @@ export default function Home() {
                 onChange={store.setProductDescription}
                 onSubmit={store.runPGE1}
                 isLoading={store.isLoading}
-                referenceImageDescription={store.referenceImageDescription}
+                referenceImageData={store.referenceImageData}
+                referenceImageMimeType={store.referenceImageMimeType}
                 referenceUrl={store.referenceUrl}
                 onReferenceImageChange={store.setReferenceImage}
                 onReferenceUrlChange={store.setReferenceUrl}
