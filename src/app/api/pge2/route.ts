@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { stripQuantityFromDescription } from '@/lib/strip-quantity';
+import { extractProductDetailsFromUrl, formatProductDetailsForPrompt } from '@/lib/scrape-url';
 
 const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.0-flash';
 
@@ -48,10 +49,16 @@ export async function POST(request: NextRequest) {
 
   let productDescription: string;
   let answers: Record<string, string>;
+  let referenceImageData: string | undefined;
+  let referenceImageMimeType: string | undefined;
+  let referenceUrl: string | undefined;
   try {
     const body = await request.json();
     productDescription = body.productDescription;
     answers = body.answers || {};
+    referenceImageData = body.referenceImageData;
+    referenceImageMimeType = body.referenceImageMimeType;
+    referenceUrl = body.referenceUrl;
     if (!productDescription || typeof productDescription !== 'string') {
       return NextResponse.json({ error: 'productDescription is required' }, { status: 400 });
     }
@@ -59,11 +66,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
+  // Optionally scrape URL for additional product context
+  let urlContext = '';
+  if (referenceUrl) {
+    const details = await extractProductDetailsFromUrl(referenceUrl, apiKey, TEXT_MODEL);
+    if (details) {
+      urlContext = `\n\nReference product from URL:\n${formatProductDetailsForPrompt(details)}`;
+    }
+  }
+
   const answersText =
     Object.keys(answers).length > 0
       ? `\n\nUser clarifications:\n${Object.entries(answers)
           .map(([k, v]) => `- ${k}: ${v}`)
           .join('\n')}`
+      : '';
+
+  const referenceImageNote =
+    referenceImageData && referenceImageMimeType
+      ? '\n\nA reference image has been provided above. Use its visual style, materials, and design language as inspiration while still generating 5 distinct variations.'
       : '';
 
   try {
@@ -74,9 +95,18 @@ export async function POST(request: NextRequest) {
     });
 
     const visualDescription = stripQuantityFromDescription(productDescription);
-    const result = await model.generateContent(
-      `Product description: "${visualDescription}"${answersText}\n\nGenerate exactly 5 distinct image generation prompts.`
-    );
+    const promptText = `Product description: "${visualDescription}"${answersText}${urlContext}${referenceImageNote}\n\nGenerate exactly 5 distinct image generation prompts.`;
+
+    // Use multimodal if reference image is provided
+    const result =
+      referenceImageData && referenceImageMimeType
+        ? await model.generateContent([
+            {
+              inlineData: { data: referenceImageData, mimeType: referenceImageMimeType },
+            },
+            promptText,
+          ])
+        : await model.generateContent(promptText);
 
     const text = result.response.text().trim();
     const jsonMatch = text.match(/\[[\s\S]*\]/);

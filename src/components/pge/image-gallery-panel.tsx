@@ -23,6 +23,8 @@ interface ImageGalleryPanelProps {
   onConfirmSelection: (id: string) => Promise<void> | void;
   isLoading: boolean;
   confirmLabel: string; // e.g. "Explore Refinements →" or "Confirm Selection"
+  referenceImageData?: string | null;
+  referenceImageMimeType?: string | null;
 }
 
 export function ImageGalleryPanel({
@@ -37,6 +39,8 @@ export function ImageGalleryPanel({
   onConfirmSelection,
   isLoading,
   confirmLabel,
+  referenceImageData,
+  referenceImageMimeType,
 }: ImageGalleryPanelProps) {
   const selected = variants.find((v) => v.id === selectedId);
 
@@ -119,6 +123,8 @@ export function ImageGalleryPanel({
             onImageError={() =>
               onUpdateVariant(variant.id, { isLoading: false, hasError: true })
             }
+            referenceImageData={referenceImageData}
+            referenceImageMimeType={referenceImageMimeType}
           />
         ))}
       </div>
@@ -219,6 +225,8 @@ interface VariantCardProps {
   onSelect: () => void;
   onImageLoaded: (imageData: string, imageMimeType: string) => void;
   onImageError: () => void;
+  referenceImageData?: string | null;
+  referenceImageMimeType?: string | null;
 }
 
 function VariantCard({
@@ -228,6 +236,8 @@ function VariantCard({
   onSelect,
   onImageLoaded,
   onImageError,
+  referenceImageData,
+  referenceImageMimeType,
 }: VariantCardProps) {
   const generationFiredRef = useRef(false);
 
@@ -241,10 +251,16 @@ function VariantCard({
 
     let cancelled = false;
 
+    const body: Record<string, string> = { prompt: variant.prompt };
+    if (referenceImageData && referenceImageMimeType) {
+      body.referenceImageData = referenceImageData;
+      body.referenceImageMimeType = referenceImageMimeType;
+    }
+
     fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: variant.prompt }),
+      body: JSON.stringify(body),
     })
       .then((res) => res.json())
       .then((data) => {
