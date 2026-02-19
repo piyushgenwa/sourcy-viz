@@ -49,15 +49,13 @@ export async function POST(request: NextRequest) {
 
   let productDescription: string;
   let answers: Record<string, string>;
-  let referenceImageData: string | undefined;
-  let referenceImageMimeType: string | undefined;
+  let referenceImageDescription: string | undefined;
   let referenceUrl: string | undefined;
   try {
     const body = await request.json();
     productDescription = body.productDescription;
     answers = body.answers || {};
-    referenceImageData = body.referenceImageData;
-    referenceImageMimeType = body.referenceImageMimeType;
+    referenceImageDescription = body.referenceImageDescription;
     referenceUrl = body.referenceUrl;
     if (!productDescription || typeof productDescription !== 'string') {
       return NextResponse.json({ error: 'productDescription is required' }, { status: 400 });
@@ -82,10 +80,9 @@ export async function POST(request: NextRequest) {
           .join('\n')}`
       : '';
 
-  const referenceImageNote =
-    referenceImageData && referenceImageMimeType
-      ? '\n\nA reference image has been provided above. Use its visual style, materials, and design language as inspiration while still generating 5 distinct variations.'
-      : '';
+  const imageContext = referenceImageDescription
+    ? `\n\nReference image style (use as design inspiration across all 5 variations): ${referenceImageDescription}`
+    : '';
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -95,18 +92,9 @@ export async function POST(request: NextRequest) {
     });
 
     const visualDescription = stripQuantityFromDescription(productDescription);
-    const promptText = `Product description: "${visualDescription}"${answersText}${urlContext}${referenceImageNote}\n\nGenerate exactly 5 distinct image generation prompts.`;
+    const promptText = `Product description: "${visualDescription}"${answersText}${imageContext}${urlContext}\n\nGenerate exactly 5 distinct image generation prompts.`;
 
-    // Use multimodal if reference image is provided
-    const result =
-      referenceImageData && referenceImageMimeType
-        ? await model.generateContent([
-            {
-              inlineData: { data: referenceImageData, mimeType: referenceImageMimeType },
-            },
-            promptText,
-          ])
-        : await model.generateContent(promptText);
+    const result = await model.generateContent(promptText);
 
     const text = result.response.text().trim();
     const jsonMatch = text.match(/\[[\s\S]*\]/);

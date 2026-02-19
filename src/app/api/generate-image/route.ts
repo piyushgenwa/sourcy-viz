@@ -1,33 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Image model — text→image only, does NOT accept image input
 const IMAGE_MODEL =
   process.env.GEMINI_IMAGE_MODEL || process.env.NANOBANANA_MODEL || 'gemini-2.5-flash-image';
-
-// Vision/text model used to describe a reference image before passing to the image model
-const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.0-flash';
-
-/**
- * Uses a vision-capable text model to describe a reference image's visual style.
- * Returns a concise style description to inject into the image generation prompt.
- */
-async function describeReferenceImage(
-  apiKey: string,
-  imageData: string,
-  imageMimeType: string
-): Promise<string> {
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: TEXT_MODEL });
-
-  const result = await model.generateContent([
-    { inlineData: { data: imageData, mimeType: imageMimeType } },
-    'Describe this product image in 2–3 concise sentences focusing only on visual and design attributes: materials, textures, color palette, finish, structural style, and aesthetic. Do not mention brand names, prices, or text visible in the image.',
-  ]);
-
-  return result.response.text().trim();
-}
 
 export async function POST(request: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -36,13 +12,11 @@ export async function POST(request: NextRequest) {
   }
 
   let prompt: string;
-  let referenceImageData: string | undefined;
-  let referenceImageMimeType: string | undefined;
+  let referenceImageDescription: string | undefined;
   try {
     const body = await request.json();
     prompt = body.prompt;
-    referenceImageData = body.referenceImageData;
-    referenceImageMimeType = body.referenceImageMimeType;
+    referenceImageDescription = body.referenceImageDescription;
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'prompt is required' }, { status: 400 });
     }
@@ -50,29 +24,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  // Step 1: If a reference image is provided, describe its visual style using a vision model.
-  // The gemini image model (text→image) cannot accept image input directly.
-  let enrichedPrompt = prompt;
-  if (referenceImageData && referenceImageMimeType) {
-    try {
-      const styleDescription = await describeReferenceImage(
-        apiKey,
-        referenceImageData,
-        referenceImageMimeType
-      );
-      enrichedPrompt = `${prompt} — Reference style: ${styleDescription}`;
-    } catch {
-      // Non-fatal: fall back to the original prompt if vision description fails
-    }
-  }
+  // If a reference image was uploaded, its visual style was pre-described once (by /api/describe-image)
+  // and is passed here as text. Append it to the prompt before sending to the image model.
+  const finalPrompt = referenceImageDescription
+    ? `${prompt} — Visual style reference: ${referenceImageDescription}`
+    : prompt;
 
-  // Step 2: Generate the image using the text→image model with the (possibly enriched) prompt
   try {
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
       model: IMAGE_MODEL,
-      contents: enrichedPrompt,
+      contents: finalPrompt,
     });
 
     const parts = response.candidates?.[0]?.content?.parts ?? [];

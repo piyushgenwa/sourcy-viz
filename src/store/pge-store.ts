@@ -37,8 +37,7 @@ function toGeneratedVariants(
 async function callPGE2(
   productDescription: string,
   userAnswers: Record<string, string>,
-  referenceImageData?: string | null,
-  referenceImageMimeType?: string | null,
+  referenceImageDescription?: string | null,
   referenceUrl?: string
 ): Promise<ImagePromptVariant[]> {
   const res = await fetch('/api/pge2', {
@@ -47,8 +46,7 @@ async function callPGE2(
     body: JSON.stringify({
       productDescription,
       answers: userAnswers,
-      referenceImageData: referenceImageData || undefined,
-      referenceImageMimeType: referenceImageMimeType || undefined,
+      referenceImageDescription: referenceImageDescription || undefined,
       referenceUrl: referenceUrl || undefined,
     }),
   });
@@ -92,6 +90,8 @@ interface PGEStore {
   referenceImageData: string | null;
   referenceImageMimeType: string | null;
   referenceUrl: string;
+  // Described once when the image is uploaded — passed as text to all AI calls
+  referenceImageDescription: string | null;
 
   // PGE1 output
   clarificationQuestions: ClarificationQuestion[];
@@ -157,6 +157,7 @@ const INITIAL: Omit<
   referenceImageData: null,
   referenceImageMimeType: null,
   referenceUrl: '',
+  referenceImageDescription: null,
   clarificationQuestions: [],
   userAnswers: {},
   l0Variants: [],
@@ -173,13 +174,37 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
   ...INITIAL,
 
   setProductDescription: (desc) => set({ productDescription: desc }),
-  setReferenceImage: (data, mimeType) =>
-    set({ referenceImageData: data, referenceImageMimeType: mimeType }),
+
+  // When an image is uploaded, immediately describe it in the background.
+  // The description text is stored and passed to all AI calls instead of the
+  // raw base64 data — avoiding large payloads on every image-generation request.
+  setReferenceImage: (data, mimeType) => {
+    set({ referenceImageData: data, referenceImageMimeType: mimeType, referenceImageDescription: null });
+
+    if (!data || !mimeType) return;
+
+    // Fire-and-forget: describe the image asynchronously
+    fetch('/api/describe-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageData: data, imageMimeType: mimeType }),
+    })
+      .then((res) => res.json())
+      .then((result) => {
+        if (result.description) {
+          set({ referenceImageDescription: result.description });
+        }
+      })
+      .catch(() => {
+        // Non-fatal — proceed without description if the call fails
+      });
+  },
+
   setReferenceUrl: (url) => set({ referenceUrl: url }),
 
   // ── PGE1: analyse description → clarification questions ──────────────────
   runPGE1: async () => {
-    const { productDescription, referenceImageData, referenceImageMimeType, referenceUrl } = get();
+    const { productDescription, referenceImageDescription, referenceUrl } = get();
     if (!productDescription.trim()) return;
 
     set({ isLoading: true, loadingMessage: 'Analyzing your product description…', error: null });
@@ -190,8 +215,7 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productDescription,
-          referenceImageData: referenceImageData || undefined,
-          referenceImageMimeType: referenceImageMimeType || undefined,
+          referenceImageDescription: referenceImageDescription || undefined,
           referenceUrl: referenceUrl || undefined,
         }),
       });
@@ -216,10 +240,10 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
 
   // ── PGE2: full input → 5 L0 image prompts ───────────────────────────────
   submitAnswers: async () => {
-    const { productDescription, userAnswers, referenceImageData, referenceImageMimeType, referenceUrl } = get();
+    const { productDescription, userAnswers, referenceImageDescription, referenceUrl } = get();
     set({ isLoading: true, loadingMessage: 'Generating initial design directions…', error: null });
     try {
-      const prompts = await callPGE2(productDescription, userAnswers, referenceImageData, referenceImageMimeType, referenceUrl);
+      const prompts = await callPGE2(productDescription, userAnswers, referenceImageDescription, referenceUrl);
       set({ l0Variants: toGeneratedVariants(prompts), step: 'l0-variants', isLoading: false });
     } catch (err) {
       set({
@@ -230,10 +254,10 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
   },
 
   skipClarification: async () => {
-    const { productDescription, userAnswers, referenceImageData, referenceImageMimeType, referenceUrl } = get();
+    const { productDescription, userAnswers, referenceImageDescription, referenceUrl } = get();
     set({ isLoading: true, loadingMessage: 'Generating initial design directions…', error: null });
     try {
-      const prompts = await callPGE2(productDescription, userAnswers, referenceImageData, referenceImageMimeType, referenceUrl);
+      const prompts = await callPGE2(productDescription, userAnswers, referenceImageDescription, referenceUrl);
       set({ l0Variants: toGeneratedVariants(prompts), step: 'l0-variants', isLoading: false });
     } catch (err) {
       set({

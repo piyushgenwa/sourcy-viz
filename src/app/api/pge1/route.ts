@@ -43,14 +43,12 @@ export async function POST(request: NextRequest) {
   }
 
   let productDescription: string;
-  let referenceImageData: string | undefined;
-  let referenceImageMimeType: string | undefined;
+  let referenceImageDescription: string | undefined;
   let referenceUrl: string | undefined;
   try {
     const body = await request.json();
     productDescription = body.productDescription;
-    referenceImageData = body.referenceImageData;
-    referenceImageMimeType = body.referenceImageMimeType;
+    referenceImageDescription = body.referenceImageDescription;
     referenceUrl = body.referenceUrl;
     if (!productDescription || typeof productDescription !== 'string') {
       return NextResponse.json({ error: 'productDescription is required' }, { status: 400 });
@@ -68,6 +66,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Include reference image description if provided
+  const imageContext = referenceImageDescription
+    ? `\n\nReference image style: ${referenceImageDescription}`
+    : '';
+
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
@@ -76,18 +79,9 @@ export async function POST(request: NextRequest) {
     });
 
     const visualDescription = stripQuantityFromDescription(productDescription);
-    const promptText = `Product description: "${visualDescription}"${urlContext}\n\nGenerate clarification questions to fill critical visual gaps.`;
+    const promptText = `Product description: "${visualDescription}"${imageContext}${urlContext}\n\nGenerate clarification questions to fill critical visual gaps.`;
 
-    // Use multimodal if reference image is provided
-    const result =
-      referenceImageData && referenceImageMimeType
-        ? await model.generateContent([
-            {
-              inlineData: { data: referenceImageData, mimeType: referenceImageMimeType },
-            },
-            promptText,
-          ])
-        : await model.generateContent(promptText);
+    const result = await model.generateContent(promptText);
 
     const text = result.response.text().trim();
     const jsonMatch = text.match(/\[[\s\S]*\]/);
