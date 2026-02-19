@@ -172,6 +172,12 @@ export interface KnowledgeEntry {
   content: string;
   metadata: Record<string, string>;
   source: 'conversation' | 'manual' | 'upload';
+  /** Confidence score 0–1, based on occurrence frequency across uploaded conversations */
+  confidence?: number;
+  /** Number of conversations this insight was observed in */
+  occurrences?: number;
+  /** Original text in source language before translation */
+  originalText?: string;
   createdAt: string;
   updatedAt: string;
 }

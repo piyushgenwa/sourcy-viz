@@ -10,6 +10,12 @@ interface KnowledgeStore extends KnowledgeBase {
   getByCategory: (category: ProductCategory) => KnowledgeEntry[];
   getByType: (type: KnowledgeEntry['type']) => KnowledgeEntry[];
   importEntries: (entries: KnowledgeEntry[]) => void;
+  /**
+   * Import AI-parsed entries from bulk upload. Merges with existing upload-sourced
+   * entries: if an entry with the same content fingerprint already exists, the
+   * occurrence count and confidence are averaged rather than duplicated.
+   */
+  importBulkUpload: (entries: KnowledgeEntry[]) => void;
   exportEntries: () => string;
   learnFromConversation: (context: ConversationContext) => void;
 }
@@ -82,6 +88,54 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
       entries: [...state.entries, ...entries],
       lastUpdated: new Date().toISOString(),
     }));
+  },
+
+  importBulkUpload: (newEntries) => {
+    const now = new Date().toISOString();
+    set((state) => {
+      // Build a fingerprint map of existing upload-sourced entries so we can merge
+      // rather than duplicate when the user runs bulk upload multiple times.
+      const existingMap = new Map<string, KnowledgeEntry>();
+      for (const e of state.entries) {
+        if (e.source === 'upload') {
+          const fp = `${e.type}|${e.category}|${e.content.toLowerCase().slice(0, 80)}`;
+          existingMap.set(fp, e);
+        }
+      }
+
+      const toAdd: KnowledgeEntry[] = [];
+      const toUpdate: Map<string, Partial<KnowledgeEntry>> = new Map();
+
+      for (const incoming of newEntries) {
+        const fp = `${incoming.type}|${incoming.category}|${incoming.content.toLowerCase().slice(0, 80)}`;
+        const existing = existingMap.get(fp);
+        if (existing) {
+          // Merge: sum occurrences, average confidence
+          const mergedOccurrences = (existing.occurrences ?? 1) + (incoming.occurrences ?? 1);
+          const mergedConfidence =
+            Math.round(
+              (((existing.confidence ?? 0.5) + (incoming.confidence ?? 0.5)) / 2) * 100
+            ) / 100;
+          toUpdate.set(existing.id, {
+            occurrences: mergedOccurrences,
+            confidence: mergedConfidence,
+            updatedAt: now,
+          });
+        } else {
+          toAdd.push({ ...incoming, updatedAt: now });
+        }
+      }
+
+      const updatedEntries = state.entries.map((e) => {
+        const upd = toUpdate.get(e.id);
+        return upd ? { ...e, ...upd } : e;
+      });
+
+      return {
+        entries: [...updatedEntries, ...toAdd],
+        lastUpdated: now,
+      };
+    });
   },
 
   exportEntries: () => {
