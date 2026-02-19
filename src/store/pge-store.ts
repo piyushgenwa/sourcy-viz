@@ -126,6 +126,7 @@ interface PGEStore {
   selectL0: (id: string) => Promise<void>;
   selectL1: (id: string) => Promise<void>;
   selectL2: (id: string) => void;
+  finalizeSelection: (variant: GeneratedImageVariant) => void;
   goToFeasibilityInput: () => void;
   runFeasibilityCheck: (input: FeasibilityInput) => Promise<void>;
   reset: () => void;
@@ -145,6 +146,7 @@ const INITIAL: Omit<
   | 'selectL0'
   | 'selectL1'
   | 'selectL2'
+  | 'finalizeSelection'
   | 'goToFeasibilityInput'
   | 'runFeasibilityCheck'
   | 'reset'
@@ -327,6 +329,11 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
       selectedL2: selected,
       step: 'complete',
     });
+  },
+
+  // Finalize any variant (from L0 or L1) as the final selection, skipping deeper refinements
+  finalizeSelection: (variant) => {
+    set({ selectedL2: variant, step: 'complete' });
   },
 
   goToFeasibilityInput: () => {
