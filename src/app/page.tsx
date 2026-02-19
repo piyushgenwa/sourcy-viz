@@ -165,7 +165,7 @@ export default function Home() {
             )}
 
             {/* ── Step 5: L2 — 3 deep refinements (PGE3 run 2) ── */}
-            {(store.step === 'l2-variants' || store.step === 'complete') && (
+            {store.step === 'l2-variants' && (
               <ImageGalleryPanel
                 title="Deep Refinements"
                 subtitle="PGE3 generated final micro-variations. Select your preferred design."
