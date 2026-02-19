@@ -45,17 +45,11 @@ export function BulkUploadPanel({ onImport, onClose }: BulkUploadPanelProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const addFiles = useCallback((incoming: FileList | File[]) => {
-    const valid = Array.from(incoming).filter((f) => {
-      const ext = f.name.toLowerCase().split('.').pop();
-      return ext === 'txt' || ext === 'csv' || ext === 'md' || f.type.startsWith('text/');
-    });
-    if (valid.length === 0) {
-      setError('Please upload .txt, .csv, or .md files containing conversation text.');
-      return;
-    }
+    const all = Array.from(incoming);
+    if (all.length === 0) return;
     setFiles((prev) => {
       const existing = new Set(prev.map((f) => f.name));
-      const deduped = valid.filter((f) => !existing.has(f.name));
+      const deduped = all.filter((f) => !existing.has(f.name));
       const merged = [...prev, ...deduped];
       if (merged.length > 20) {
         setError('Maximum 20 conversation files per batch.');
