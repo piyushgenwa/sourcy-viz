@@ -10,6 +10,11 @@ The user has selected a specific product design direction. Generate exactly 3 re
 
 IMPORTANT: Do NOT include quantity or order volume (e.g. "500 units", "MOQ 1000") in any prompt. Quantity is a sourcing constraint, not a visual attribute.
 
+STUDIO ENVIRONMENT (apply to all prompts):
+- All images must be shot in a professional studio environment
+- Background must be plain and solid — choose a color that is contextually harmonious with the product's color palette (e.g. a warm ivory for a tan leather bag, a soft slate for a charcoal product, a pale blush for a rose-toned product)
+- Do NOT use pure white unless the product itself is predominantly white; instead pick a subtle, complementary studio tone
+
 ANCHOR (must be preserved from the selected design):
 - Core design language and aesthetic direction
 - Overall style the user chose
@@ -28,7 +33,7 @@ Return ONLY a valid JSON array — no markdown, no explanation:
     "id": "n1",
     "name": "Texture Deep Dive",
     "description": "Exploring material surface treatment",
-    "prompt": "Professional product photography: [full self-contained description anchored to selected design with specific refinement], soft studio lighting, white background, sharp focus, commercial quality",
+    "prompt": "Professional product photography: [full self-contained description anchored to selected design with specific refinement], studio environment, soft diffused lighting, plain [color] background complementary to the product's palette, sharp focus, commercial quality",
     "anchoredAspects": ["minimalist black leather tote", "structured silhouette"],
     "flexibleAspects": ["pebbled grain texture", "brushed gold hardware"]
   }
@@ -39,6 +44,7 @@ Rules:
 - Each must clearly build from the parent design — not a completely new design
 - Each variation explores one distinct refinement dimension
 - Prompts must be fully self-contained — include all context, do not reference "the selected image"
+- Each prompt must specify a plain studio background with a color contextually matched to the product's color palette
 - Names must be 2–3 words max`;
 
 export async function POST(request: NextRequest) {

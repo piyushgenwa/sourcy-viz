@@ -215,6 +215,14 @@ export interface GeneratedImageVariant extends ImagePromptVariant {
   selected: boolean;
 }
 
+// ─── PGE4: Hero Banner View Types ────────────────────────────────────────────
+
+export type HeroBannerViewDirection = 'front' | 'side' | 'top';
+
+export interface HeroBannerVariant extends GeneratedImageVariant {
+  viewDirection: HeroBannerViewDirection;
+}
+
 export type PGEFlowStep =
   | 'product-input'
   | 'clarification'

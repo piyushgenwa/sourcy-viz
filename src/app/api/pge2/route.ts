@@ -11,6 +11,11 @@ Given a product description and optional user clarifications, create exactly 5 d
 
 IMPORTANT: Do NOT include quantity or order volume (e.g. "500 units", "MOQ 1000") in any prompt. Quantity is a sourcing constraint, not a visual attribute.
 
+STUDIO ENVIRONMENT (apply to all prompts):
+- All images must be shot in a professional studio environment
+- Background must be plain and solid — choose a color that is contextually harmonious with the product's color palette (e.g. a warm ivory for a tan leather bag, a soft slate for a charcoal product, a pale blush for a rose-toned product)
+- Do NOT use pure white unless the product itself is predominantly white; instead pick a subtle, complementary studio tone
+
 ANCHORING REQUIREMENTS (keep consistent across all 5):
 - Core product type, function, and identity
 - Any constraints explicitly stated by the user
@@ -28,7 +33,7 @@ Return ONLY a valid JSON array — no markdown, no explanation:
     "id": "v1",
     "name": "Modern Minimal",
     "description": "Clean lines, understated elegance",
-    "prompt": "Professional product photography: [full detailed description], clean studio lighting, pure white background, sharp focus, commercial quality",
+    "prompt": "Professional product photography: [full detailed description], studio environment, soft diffused lighting, plain [color] background complementary to the product's palette, sharp focus, commercial quality",
     "anchoredAspects": ["leather tote bag", "functional design"],
     "flexibleAspects": ["minimalist style", "charcoal grey", "smooth matte finish"]
   }
@@ -37,7 +42,7 @@ Return ONLY a valid JSON array — no markdown, no explanation:
 Rules:
 - Exactly 5 prompts required
 - Each prompt must be self-contained and complete — start with "Professional product photography:"
-- End each prompt with: studio lighting details and "white background, sharp focus"
+- Each prompt must specify a plain studio background with a color contextually matched to the product's color palette
 - Names must be 2–3 words max
 - The 5 prompts must explore visually distinct territories — user should immediately see the difference`;
 

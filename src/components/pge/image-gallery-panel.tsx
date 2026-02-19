@@ -299,7 +299,7 @@ function VariantCard({
   return (
     <button
       onClick={onSelect}
-      className={`group relative rounded-xl border-2 p-3 text-left transition-all hover:shadow-md ${
+      className={`group relative rounded-xl border-2 p-3 text-left transition-all duration-200 ease-out hover:scale-105 hover:z-10 hover:shadow-xl ${
         isSelected
           ? 'border-blue-500 bg-blue-50 shadow-md'
           : 'border-gray-200 bg-white hover:border-gray-300'

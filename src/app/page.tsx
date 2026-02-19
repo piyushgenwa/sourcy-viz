@@ -9,6 +9,7 @@ import { ImageGalleryPanel } from '@/components/pge/image-gallery-panel';
 import { KnowledgePanel } from '@/components/knowledge-base/knowledge-panel';
 import { FeasibilityInputPanel } from '@/components/feasibility/feasibility-input-panel';
 import { FeasibilityResultPanel } from '@/components/feasibility/feasibility-result-panel';
+import { HeroBannerPanel } from '@/components/pge/hero-banner-panel';
 import type { GeneratedImageVariant } from '@/types/product';
 
 type Tab = 'flow' | 'knowledge';
@@ -204,50 +205,59 @@ export default function Home() {
 
             {/* ── Complete state summary ── */}
             {store.step === 'complete' && store.selectedL2 && (
-              <div className="mt-8 rounded-2xl border border-green-200 bg-green-50 p-6">
-                <div className="flex items-start gap-4">
-                  {store.selectedL2.imageData && (
-                    <img
-                      src={`data:${store.selectedL2.imageMimeType};base64,${store.selectedL2.imageData}`}
-                      alt={store.selectedL2.name}
-                      className="h-24 w-24 flex-shrink-0 rounded-xl object-cover shadow"
-                    />
-                  )}
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-green-600">&#10003;</span>
-                      <h3 className="text-lg font-bold text-gray-900">Design Selected</h3>
+              <>
+                <div className="mt-8 rounded-2xl border border-green-200 bg-green-50 p-6">
+                  <div className="flex items-start gap-4">
+                    {store.selectedL2.imageData && (
+                      <img
+                        src={`data:${store.selectedL2.imageMimeType};base64,${store.selectedL2.imageData}`}
+                        alt={store.selectedL2.name}
+                        className="h-24 w-24 flex-shrink-0 rounded-xl object-cover shadow"
+                      />
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-600">&#10003;</span>
+                        <h3 className="text-lg font-bold text-gray-900">Design Selected</h3>
+                      </div>
+                      <p className="mt-1 font-semibold text-gray-800">{store.selectedL2.name}</p>
+                      <p className="mt-1 text-sm text-gray-600">{store.selectedL2.description}</p>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {store.selectedL2.anchoredAspects.map((a) => (
+                          <span
+                            key={a}
+                            className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs text-blue-700"
+                          >
+                            {a}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <p className="mt-1 font-semibold text-gray-800">{store.selectedL2.name}</p>
-                    <p className="mt-1 text-sm text-gray-600">{store.selectedL2.description}</p>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {store.selectedL2.anchoredAspects.map((a) => (
-                        <span
-                          key={a}
-                          className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs text-blue-700"
-                        >
-                          {a}
-                        </span>
-                      ))}
-                    </div>
+                  </div>
+
+                  <div className="mt-4 flex gap-3">
+                    <button
+                      onClick={store.reset}
+                      className="rounded-lg border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50"
+                    >
+                      Start new design
+                    </button>
+                    <button
+                      onClick={store.goToFeasibilityInput}
+                      className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                      Check Feasibility →
+                    </button>
                   </div>
                 </div>
 
-                <div className="mt-4 flex gap-3">
-                  <button
-                    onClick={store.reset}
-                    className="rounded-lg border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50"
-                  >
-                    Start new design
-                  </button>
-                  <button
-                    onClick={store.goToFeasibilityInput}
-                    className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    Check Feasibility →
-                  </button>
-                </div>
-              </div>
+                {/* ── PGE4: Hero banner — front, side, top views ── */}
+                <HeroBannerPanel
+                  views={store.heroBannerViews}
+                  error={store.heroBannerError}
+                  onUpdateView={store.updateHeroBannerView}
+                />
+              </>
             )}
 
             {/* ── Step 7: Feasibility input form ── */}
