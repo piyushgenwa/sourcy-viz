@@ -5,6 +5,8 @@ import type {
   ClarificationQuestion,
   ImagePromptVariant,
   GeneratedImageVariant,
+  HeroBannerVariant,
+  HeroBannerViewDirection,
   FeasibilityInput,
   AIFeasibilityResult,
 } from '@/types/product';
@@ -80,6 +82,51 @@ async function callPGE3(
   return data.prompts as ImagePromptVariant[];
 }
 
+async function callPGE4(
+  productDescription: string,
+  selectedPrompt: string,
+  selectedName: string,
+  selectedDescription: string
+): Promise<ImagePromptVariant[]> {
+  const res = await fetch('/api/pge4', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      productDescription,
+      selectedPrompt,
+      selectedName,
+      selectedDescription,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'PGE4 failed');
+  return data.prompts as ImagePromptVariant[];
+}
+
+const HERO_BANNER_GRADIENTS: Record<string, string> = {
+  'hero-front': 'from-indigo-200 to-indigo-400',
+  'hero-side': 'from-purple-200 to-purple-400',
+  'hero-top': 'from-fuchsia-200 to-fuchsia-400',
+};
+
+const HERO_BANNER_VIEW_DIRECTIONS: Record<string, HeroBannerViewDirection> = {
+  'hero-front': 'front',
+  'hero-side': 'side',
+  'hero-top': 'top',
+};
+
+function toHeroBannerVariants(prompts: ImagePromptVariant[]): HeroBannerVariant[] {
+  return prompts.map((p) => ({
+    ...p,
+    id: p.id || uuid(),
+    placeholderGradient: HERO_BANNER_GRADIENTS[p.id] ?? 'from-gray-200 to-gray-400',
+    viewDirection: HERO_BANNER_VIEW_DIRECTIONS[p.id] ?? 'front',
+    isLoading: true,
+    hasError: false,
+    selected: false,
+  }));
+}
+
 interface PGEStore {
   step: PGEFlowStep;
   isLoading: boolean;
@@ -113,6 +160,10 @@ interface PGEStore {
   feasibilityInput: FeasibilityInput | null;
   feasibilityResult: AIFeasibilityResult | null;
 
+  // PGE4: hero banner views (front, side, top)
+  heroBannerViews: HeroBannerVariant[];
+  heroBannerError: string | null;
+
   // Actions
   setProductDescription: (desc: string) => void;
   setReferenceImage: (data: string | null, mimeType: string | null) => void;
@@ -127,6 +178,7 @@ interface PGEStore {
   selectL1: (id: string) => Promise<void>;
   selectL2: (id: string) => void;
   finalizeSelection: (variant: GeneratedImageVariant) => void;
+  updateHeroBannerView: (id: string, update: Partial<HeroBannerVariant>) => void;
   goToFeasibilityInput: () => void;
   runFeasibilityCheck: (input: FeasibilityInput) => Promise<void>;
   reset: () => void;
@@ -147,6 +199,7 @@ const INITIAL: Omit<
   | 'selectL1'
   | 'selectL2'
   | 'finalizeSelection'
+  | 'updateHeroBannerView'
   | 'goToFeasibilityInput'
   | 'runFeasibilityCheck'
   | 'reset'
@@ -169,6 +222,8 @@ const INITIAL: Omit<
   selectedL2: null,
   feasibilityInput: null,
   feasibilityResult: null,
+  heroBannerViews: [],
+  heroBannerError: null,
 };
 
 export const usePGEStore = create<PGEStore>((set, get) => ({
@@ -321,20 +376,49 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
   },
 
   selectL2: (id) => {
-    const { l2Variants } = get();
+    const { l2Variants, productDescription } = get();
     const selected = l2Variants.find((v) => v.id === id);
     if (!selected) return;
     set({
       l2Variants: l2Variants.map((v) => ({ ...v, selected: v.id === id })),
       selectedL2: selected,
       step: 'complete',
+      heroBannerViews: [],
+      heroBannerError: null,
     });
+    // Trigger PGE4 to generate hero banner views in the background
+    callPGE4(productDescription, selected.prompt, selected.name, selected.description)
+      .then((prompts) => {
+        set({ heroBannerViews: toHeroBannerVariants(prompts) });
+      })
+      .catch((err) => {
+        set({ heroBannerError: err instanceof Error ? err.message : 'Failed to generate hero banner views' });
+      });
   },
 
   // Finalize any variant (from L0 or L1) as the final selection, skipping deeper refinements
   finalizeSelection: (variant) => {
-    set({ selectedL2: variant, step: 'complete' });
+    const { productDescription } = get();
+    set({
+      selectedL2: variant,
+      step: 'complete',
+      heroBannerViews: [],
+      heroBannerError: null,
+    });
+    // Trigger PGE4 to generate hero banner views in the background
+    callPGE4(productDescription, variant.prompt, variant.name, variant.description)
+      .then((prompts) => {
+        set({ heroBannerViews: toHeroBannerVariants(prompts) });
+      })
+      .catch((err) => {
+        set({ heroBannerError: err instanceof Error ? err.message : 'Failed to generate hero banner views' });
+      });
   },
+
+  updateHeroBannerView: (id, update) =>
+    set((s) => ({
+      heroBannerViews: s.heroBannerViews.map((v) => (v.id === id ? { ...v, ...update } : v)),
+    })),
 
   goToFeasibilityInput: () => {
     set({ step: 'feasibility-input', feasibilityResult: null, error: null });
