@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useKnowledgeStore, type ConversationContext } from '@/store/knowledge-store';
 import type { KnowledgeEntry, ProductCategory } from '@/types/product';
 import { Badge } from '@/components/ui/badge';
+import { BulkUploadPanel } from '@/components/knowledge-base/bulk-upload-panel';
 
 const TYPE_LABELS: Record<KnowledgeEntry['type'], string> = {
   'request-pattern': 'Request Pattern',
@@ -28,6 +29,7 @@ export function KnowledgePanel() {
     addEntry,
     deleteEntry,
     importEntries,
+    importBulkUpload,
     exportEntries,
     learnFromConversation,
   } = useKnowledgeStore();
@@ -35,6 +37,7 @@ export function KnowledgePanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showLearnForm, setShowLearnForm] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredEntries = searchQuery ? searchEntries(searchQuery) : entries;
@@ -72,6 +75,12 @@ export function KnowledgePanel() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Knowledge Base</h2>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowBulkUpload(!showBulkUpload)}
+            className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-100"
+          >
+            Bulk Upload
+          </button>
           <button
             onClick={() => setShowLearnForm(!showLearnForm)}
             className="rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"
@@ -115,6 +124,17 @@ export function KnowledgePanel() {
         className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
       />
 
+      {/* Bulk upload panel */}
+      {showBulkUpload && (
+        <BulkUploadPanel
+          onImport={(entries) => {
+            importBulkUpload(entries);
+            setShowBulkUpload(false);
+          }}
+          onClose={() => setShowBulkUpload(false)}
+        />
+      )}
+
       {/* Learn from conversation form */}
       {showLearnForm && <LearnForm onLearn={learnFromConversation} onClose={() => setShowLearnForm(false)} />}
 
@@ -128,12 +148,18 @@ export function KnowledgePanel() {
           <div key={entry.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <Badge variant={TYPE_VARIANTS[entry.type]}>{TYPE_LABELS[entry.type]}</Badge>
                   <Badge>{entry.category}</Badge>
                   <span className="text-xs text-gray-400">{entry.source}</span>
+                  {entry.confidence !== undefined && (
+                    <ConfidencePill confidence={entry.confidence} occurrences={entry.occurrences} />
+                  )}
                 </div>
                 <p className="mt-2 text-sm text-gray-700">{entry.content}</p>
+                {entry.originalText && (
+                  <p className="mt-1 text-xs text-gray-400 italic">Original: {entry.originalText}</p>
+                )}
                 {Object.keys(entry.metadata).length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {Object.entries(entry.metadata).map(([k, v]) => (
@@ -155,6 +181,22 @@ export function KnowledgePanel() {
         ))}
       </div>
     </div>
+  );
+}
+
+function ConfidencePill({ confidence, occurrences }: { confidence: number; occurrences?: number }) {
+  const pct = Math.round(confidence * 100);
+  const colorClass =
+    confidence >= 0.75
+      ? 'bg-green-100 text-green-700'
+      : confidence >= 0.4
+      ? 'bg-yellow-100 text-yellow-700'
+      : 'bg-red-100 text-red-700';
+  const label = confidence >= 0.75 ? 'High' : confidence >= 0.4 ? 'Medium' : 'Low';
+  return (
+    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium ${colorClass}`}>
+      {label} {pct}%{occurrences !== undefined && occurrences > 0 ? ` · ${occurrences}×` : ''}
+    </span>
   );
 }
 
