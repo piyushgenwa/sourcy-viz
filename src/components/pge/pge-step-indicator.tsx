@@ -9,6 +9,8 @@ const STEPS: { key: PGEFlowStep; label: string; icon: string }[] = [
   { key: 'l1-variants', label: 'Refine', icon: '4' },
   { key: 'l2-variants', label: 'Detail', icon: '5' },
   { key: 'complete', label: 'Done', icon: '6' },
+  { key: 'feasibility-input', label: 'Feasibility', icon: '7' },
+  { key: 'feasibility-result', label: 'Report', icon: '8' },
 ];
 
 // Map each step to its "visual index" for progress calculation
@@ -19,6 +21,8 @@ const STEP_ORDER: PGEFlowStep[] = [
   'l1-variants',
   'l2-variants',
   'complete',
+  'feasibility-input',
+  'feasibility-result',
 ];
 
 export function PGEStepIndicator({ currentStep }: { currentStep: PGEFlowStep }) {
@@ -54,7 +58,7 @@ export function PGEStepIndicator({ currentStep }: { currentStep: PGEFlowStep }) 
             </div>
             {i < STEPS.length - 1 && (
               <div
-                className={`mx-1 h-0.5 w-6 sm:w-10 ${
+                className={`mx-1 h-0.5 w-6 sm:w-8 ${
                   isCompleted ? 'bg-green-500' : 'bg-gray-200'
                 }`}
               />

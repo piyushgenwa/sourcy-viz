@@ -5,6 +5,8 @@ import type {
   ClarificationQuestion,
   ImagePromptVariant,
   GeneratedImageVariant,
+  FeasibilityInput,
+  AIFeasibilityResult,
 } from '@/types/product';
 
 const GRADIENTS = [
@@ -93,6 +95,10 @@ interface PGEStore {
   l2Variants: GeneratedImageVariant[];
   selectedL2: GeneratedImageVariant | null;
 
+  // Feasibility checker state
+  feasibilityInput: FeasibilityInput | null;
+  feasibilityResult: AIFeasibilityResult | null;
+
   // Actions
   setProductDescription: (desc: string) => void;
   runPGE1: () => Promise<void>;
@@ -104,6 +110,8 @@ interface PGEStore {
   selectL0: (id: string) => Promise<void>;
   selectL1: (id: string) => Promise<void>;
   selectL2: (id: string) => void;
+  goToFeasibilityInput: () => void;
+  runFeasibilityCheck: (input: FeasibilityInput) => Promise<void>;
   reset: () => void;
 }
 
@@ -119,6 +127,8 @@ const INITIAL: Omit<
   | 'selectL0'
   | 'selectL1'
   | 'selectL2'
+  | 'goToFeasibilityInput'
+  | 'runFeasibilityCheck'
   | 'reset'
 > = {
   step: 'product-input',
@@ -134,6 +144,8 @@ const INITIAL: Omit<
   selectedL1: null,
   l2Variants: [],
   selectedL2: null,
+  feasibilityInput: null,
+  feasibilityResult: null,
 };
 
 export const usePGEStore = create<PGEStore>((set, get) => ({
@@ -286,6 +298,49 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
       selectedL2: selected,
       step: 'complete',
     });
+  },
+
+  goToFeasibilityInput: () => {
+    set({ step: 'feasibility-input', feasibilityResult: null, error: null });
+  },
+
+  runFeasibilityCheck: async (input: FeasibilityInput) => {
+    const { productDescription, selectedL2 } = get();
+    set({
+      feasibilityInput: input,
+      isLoading: true,
+      loadingMessage: 'Analysing feasibility…',
+      error: null,
+    });
+    try {
+      const res = await fetch('/api/feasibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productDescription,
+          selectedDesignName: selectedL2?.name ?? '',
+          selectedDesignDescription: selectedL2?.description ?? '',
+          customizationDescription: input.customizationDescription,
+          moq: input.moq,
+          targetPriceMin: input.targetPriceMin,
+          targetPriceMax: input.targetPriceMax,
+          priceCurrency: input.priceCurrency,
+          timeline: input.timeline,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Feasibility check failed');
+      set({
+        feasibilityResult: data.analysis,
+        step: 'feasibility-result',
+        isLoading: false,
+      });
+    } catch (err) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : 'Feasibility check failed',
+      });
+    }
   },
 
   reset: () => set({ ...INITIAL }),

@@ -7,6 +7,8 @@ import { ProductInputPanel } from '@/components/pge/product-input-panel';
 import { ClarificationPanel } from '@/components/pge/clarification-panel';
 import { ImageGalleryPanel } from '@/components/pge/image-gallery-panel';
 import { KnowledgePanel } from '@/components/knowledge-base/knowledge-panel';
+import { FeasibilityInputPanel } from '@/components/feasibility/feasibility-input-panel';
+import { FeasibilityResultPanel } from '@/components/feasibility/feasibility-result-panel';
 import type { GeneratedImageVariant } from '@/types/product';
 
 type Tab = 'flow' | 'knowledge';
@@ -219,9 +221,38 @@ export default function Home() {
                   >
                     Start new design
                   </button>
+                  <button
+                    onClick={store.goToFeasibilityInput}
+                    className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    Check Feasibility →
+                  </button>
                 </div>
               </div>
             )}
+
+            {/* ── Step 7: Feasibility input form ── */}
+            {store.step === 'feasibility-input' && store.selectedL2 && (
+              <FeasibilityInputPanel
+                selectedDesign={store.selectedL2}
+                productDescription={store.productDescription}
+                isLoading={store.isLoading}
+                onSubmit={store.runFeasibilityCheck}
+                onBack={() => usePGEStore.setState({ step: 'complete' })}
+              />
+            )}
+
+            {/* ── Step 8: Feasibility result report ── */}
+            {store.step === 'feasibility-result' &&
+              store.feasibilityResult &&
+              store.feasibilityInput && (
+                <FeasibilityResultPanel
+                  result={store.feasibilityResult}
+                  feasibilityInput={store.feasibilityInput}
+                  onBack={() => usePGEStore.setState({ step: 'feasibility-input' })}
+                  onStartOver={store.reset}
+                />
+              )}
 
             {/* Loading overlay (full-panel blocker while PGE is calling AI) */}
             {store.isLoading && (

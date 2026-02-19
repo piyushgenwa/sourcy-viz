@@ -215,7 +215,52 @@ export type PGEFlowStep =
   | 'l0-variants'
   | 'l1-variants'
   | 'l2-variants'
-  | 'complete';
+  | 'complete'
+  | 'feasibility-input'
+  | 'feasibility-result';
+
+// ─── Feasibility Checker Types ────────────────────────────────────────────────
+
+export interface FeasibilityInput {
+  customizationDescription: string;
+  moq: number | null;
+  targetPriceMin: number | null;
+  targetPriceMax: number | null;
+  priceCurrency: string;
+  timeline: string;
+}
+
+export type FeasibilityStatus = 'feasible' | 'at-risk' | 'infeasible';
+
+export interface FeasibilityDimension {
+  status: FeasibilityStatus;
+  headline: string;
+  detail: string;
+  risks: string[];
+}
+
+export interface FeasibilityAlternative {
+  id: string;
+  title: string;
+  description: string;
+  tradeoffs: string[];
+  saves: string;
+}
+
+export type FeasibilityVerdict = 'proceed' | 'proceed-with-caution' | 'reconsider';
+
+export interface AIFeasibilityResult {
+  classificationLevel: CustomizationLevel;
+  classificationRationale: string;
+  customizationFeasibility: FeasibilityDimension;
+  moqFeasibility: FeasibilityDimension;
+  priceFeasibility: FeasibilityDimension;
+  timelineFeasibility: FeasibilityDimension;
+  qualityRisks: string[];
+  alternatives: FeasibilityAlternative[];
+  overallVerdict: FeasibilityVerdict;
+  overallSummary: string;
+}
 
 // ─── Flow State Types ────────────────────────────────────────────────────────
 
