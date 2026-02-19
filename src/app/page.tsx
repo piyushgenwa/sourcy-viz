@@ -147,6 +147,10 @@ export default function Home() {
                 onSelectVariant={(id) => store.selectVariant(0, id)}
                 onUpdateVariant={(id, update) => store.updateVariant(0, id, update)}
                 onConfirmSelection={store.selectL0}
+                onFinalizeSelection={(id) => {
+                  const variant = store.l0Variants.find((v) => v.id === id);
+                  if (variant) store.finalizeSelection(variant);
+                }}
                 isLoading={store.isLoading}
                 confirmLabel="Explore Refinements →"
                 referenceImageData={store.referenceImageData}
@@ -166,6 +170,10 @@ export default function Home() {
                 onSelectVariant={(id) => store.selectVariant(1, id)}
                 onUpdateVariant={(id, update) => store.updateVariant(1, id, update)}
                 onConfirmSelection={store.selectL1}
+                onFinalizeSelection={(id) => {
+                  const variant = store.l1Variants.find((v) => v.id === id);
+                  if (variant) store.finalizeSelection(variant);
+                }}
                 isLoading={store.isLoading}
                 confirmLabel="Go Deeper →"
                 referenceImageData={store.referenceImageData}

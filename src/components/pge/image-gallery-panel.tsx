@@ -21,6 +21,7 @@ interface ImageGalleryPanelProps {
   onSelectVariant: (id: string) => void; // exclusive card selection
   onUpdateVariant: (id: string, update: Partial<GeneratedImageVariant>) => void; // image data updates
   onConfirmSelection: (id: string) => Promise<void> | void;
+  onFinalizeSelection?: (id: string) => void; // skip deeper refinements and finalize now
   isLoading: boolean;
   confirmLabel: string; // e.g. "Explore Refinements →" or "Confirm Selection"
   referenceImageData?: string | null;
@@ -37,6 +38,7 @@ export function ImageGalleryPanel({
   onSelectVariant,
   onUpdateVariant,
   onConfirmSelection,
+  onFinalizeSelection,
   isLoading,
   confirmLabel,
   referenceImageData,
@@ -136,39 +138,50 @@ export function ImageGalleryPanel({
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <span className="font-medium text-gray-900">Selected:</span> {selected.name}
             </div>
-            <button
-              onClick={() => onConfirmSelection(selectedId!)}
-              disabled={isLoading}
-              className="ml-auto flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
-            >
-              {isLoading ? (
-                <>
-                  <svg
-                    className="h-4 w-4 animate-spin"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                  Processing…
-                </>
-              ) : (
-                confirmLabel
+            <div className="ml-auto flex items-center gap-3">
+              {onFinalizeSelection && level < 2 && (
+                <button
+                  onClick={() => onFinalizeSelection(selectedId!)}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-5 py-2.5 text-sm font-medium text-green-700 hover:bg-green-100 disabled:opacity-40"
+                >
+                  This looks good
+                </button>
               )}
-            </button>
+              <button
+                onClick={() => onConfirmSelection(selectedId!)}
+                disabled={isLoading}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+              >
+                {isLoading ? (
+                  <>
+                    <svg
+                      className="h-4 w-4 animate-spin"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                    Processing…
+                  </>
+                ) : (
+                  confirmLabel
+                )}
+              </button>
+            </div>
           </>
         ) : (
           <p className="text-sm text-gray-400">Select an image above to continue</p>
