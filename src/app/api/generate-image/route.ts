@@ -11,9 +11,13 @@ export async function POST(request: NextRequest) {
   }
 
   let prompt: string;
+  let referenceImageData: string | undefined;
+  let referenceImageMimeType: string | undefined;
   try {
     const body = await request.json();
     prompt = body.prompt;
+    referenceImageData = body.referenceImageData;
+    referenceImageMimeType = body.referenceImageMimeType;
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'prompt is required' }, { status: 400 });
     }
@@ -24,9 +28,30 @@ export async function POST(request: NextRequest) {
   try {
     const ai = new GoogleGenAI({ apiKey });
 
+    // Build content — include reference image if provided
+    const contents =
+      referenceImageData && referenceImageMimeType
+        ? [
+            {
+              role: 'user',
+              parts: [
+                {
+                  inlineData: {
+                    data: referenceImageData,
+                    mimeType: referenceImageMimeType,
+                  },
+                },
+                {
+                  text: `Using the reference image above as visual inspiration for style, materials, and design language, generate a new product image based on this description: ${prompt}`,
+                },
+              ],
+            },
+          ]
+        : prompt;
+
     const response = await ai.models.generateContent({
       model: IMAGE_MODEL,
-      contents: prompt,
+      contents,
     });
 
     const parts = response.candidates?.[0]?.content?.parts ?? [];

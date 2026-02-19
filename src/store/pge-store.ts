@@ -36,12 +36,21 @@ function toGeneratedVariants(
 
 async function callPGE2(
   productDescription: string,
-  userAnswers: Record<string, string>
+  userAnswers: Record<string, string>,
+  referenceImageData?: string | null,
+  referenceImageMimeType?: string | null,
+  referenceUrl?: string
 ): Promise<ImagePromptVariant[]> {
   const res = await fetch('/api/pge2', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ productDescription, answers: userAnswers }),
+    body: JSON.stringify({
+      productDescription,
+      answers: userAnswers,
+      referenceImageData: referenceImageData || undefined,
+      referenceImageMimeType: referenceImageMimeType || undefined,
+      referenceUrl: referenceUrl || undefined,
+    }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'PGE2 failed');
@@ -79,6 +88,11 @@ interface PGEStore {
 
   productDescription: string;
 
+  // Reference inputs
+  referenceImageData: string | null;
+  referenceImageMimeType: string | null;
+  referenceUrl: string;
+
   // PGE1 output
   clarificationQuestions: ClarificationQuestion[];
   userAnswers: Record<string, string>; // question text -> chosen answer
@@ -101,6 +115,8 @@ interface PGEStore {
 
   // Actions
   setProductDescription: (desc: string) => void;
+  setReferenceImage: (data: string | null, mimeType: string | null) => void;
+  setReferenceUrl: (url: string) => void;
   runPGE1: () => Promise<void>;
   setAnswer: (question: string, answer: string) => void;
   submitAnswers: () => Promise<void>;
@@ -118,6 +134,8 @@ interface PGEStore {
 const INITIAL: Omit<
   PGEStore,
   | 'setProductDescription'
+  | 'setReferenceImage'
+  | 'setReferenceUrl'
   | 'runPGE1'
   | 'setAnswer'
   | 'submitAnswers'
@@ -136,6 +154,9 @@ const INITIAL: Omit<
   loadingMessage: '',
   error: null,
   productDescription: '',
+  referenceImageData: null,
+  referenceImageMimeType: null,
+  referenceUrl: '',
   clarificationQuestions: [],
   userAnswers: {},
   l0Variants: [],
@@ -152,10 +173,13 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
   ...INITIAL,
 
   setProductDescription: (desc) => set({ productDescription: desc }),
+  setReferenceImage: (data, mimeType) =>
+    set({ referenceImageData: data, referenceImageMimeType: mimeType }),
+  setReferenceUrl: (url) => set({ referenceUrl: url }),
 
   // ── PGE1: analyse description → clarification questions ──────────────────
   runPGE1: async () => {
-    const { productDescription } = get();
+    const { productDescription, referenceImageData, referenceImageMimeType, referenceUrl } = get();
     if (!productDescription.trim()) return;
 
     set({ isLoading: true, loadingMessage: 'Analyzing your product description…', error: null });
@@ -164,7 +188,12 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
       const res = await fetch('/api/pge1', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productDescription }),
+        body: JSON.stringify({
+          productDescription,
+          referenceImageData: referenceImageData || undefined,
+          referenceImageMimeType: referenceImageMimeType || undefined,
+          referenceUrl: referenceUrl || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'PGE1 failed');
@@ -187,10 +216,10 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
 
   // ── PGE2: full input → 5 L0 image prompts ───────────────────────────────
   submitAnswers: async () => {
-    const { productDescription, userAnswers } = get();
+    const { productDescription, userAnswers, referenceImageData, referenceImageMimeType, referenceUrl } = get();
     set({ isLoading: true, loadingMessage: 'Generating initial design directions…', error: null });
     try {
-      const prompts = await callPGE2(productDescription, userAnswers);
+      const prompts = await callPGE2(productDescription, userAnswers, referenceImageData, referenceImageMimeType, referenceUrl);
       set({ l0Variants: toGeneratedVariants(prompts), step: 'l0-variants', isLoading: false });
     } catch (err) {
       set({
@@ -201,10 +230,10 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
   },
 
   skipClarification: async () => {
-    const { productDescription, userAnswers } = get();
+    const { productDescription, userAnswers, referenceImageData, referenceImageMimeType, referenceUrl } = get();
     set({ isLoading: true, loadingMessage: 'Generating initial design directions…', error: null });
     try {
-      const prompts = await callPGE2(productDescription, userAnswers);
+      const prompts = await callPGE2(productDescription, userAnswers, referenceImageData, referenceImageMimeType, referenceUrl);
       set({ l0Variants: toGeneratedVariants(prompts), step: 'l0-variants', isLoading: false });
     } catch (err) {
       set({

@@ -114,6 +114,11 @@ export default function Home() {
                 onChange={store.setProductDescription}
                 onSubmit={store.runPGE1}
                 isLoading={store.isLoading}
+                referenceImageData={store.referenceImageData}
+                referenceImageMimeType={store.referenceImageMimeType}
+                referenceUrl={store.referenceUrl}
+                onReferenceImageChange={store.setReferenceImage}
+                onReferenceUrlChange={store.setReferenceUrl}
               />
             )}
 
@@ -144,6 +149,8 @@ export default function Home() {
                 onConfirmSelection={store.selectL0}
                 isLoading={store.isLoading}
                 confirmLabel="Explore Refinements →"
+                referenceImageData={store.referenceImageData}
+                referenceImageMimeType={store.referenceImageMimeType}
               />
             )}
 
@@ -161,6 +168,8 @@ export default function Home() {
                 onConfirmSelection={store.selectL1}
                 isLoading={store.isLoading}
                 confirmLabel="Go Deeper →"
+                referenceImageData={store.referenceImageData}
+                referenceImageMimeType={store.referenceImageMimeType}
               />
             )}
 
@@ -180,6 +189,8 @@ export default function Home() {
                 }}
                 isLoading={store.isLoading}
                 confirmLabel="Confirm Selection ✓"
+                referenceImageData={store.referenceImageData}
+                referenceImageMimeType={store.referenceImageMimeType}
               />
             )}
 
