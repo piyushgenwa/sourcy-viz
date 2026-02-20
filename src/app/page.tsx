@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { usePGEStore } from '@/store/pge-store';
 import { PGEStepIndicator } from '@/components/pge/pge-step-indicator';
 import { ProductInputPanel } from '@/components/pge/product-input-panel';
@@ -10,6 +10,9 @@ import { KnowledgePanel } from '@/components/knowledge-base/knowledge-panel';
 import { FeasibilityInputPanel } from '@/components/feasibility/feasibility-input-panel';
 import { FeasibilityResultPanel } from '@/components/feasibility/feasibility-result-panel';
 import { HeroBannerPanel } from '@/components/pge/hero-banner-panel';
+import { ProductSummaryModal } from '@/components/ui/product-summary-modal';
+import { ToastContainer } from '@/components/ui/toast';
+import type { ToastMessage } from '@/components/ui/toast';
 import type { GeneratedImageVariant } from '@/types/product';
 
 type Tab = 'flow' | 'knowledge';
@@ -27,7 +30,23 @@ function selectionCrumb(variant: GeneratedImageVariant | null, label: string) {
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('flow');
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const store = usePGEStore();
+
+  const addToast = useCallback((message: string, type: ToastMessage['type'] = 'success') => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((prev) => [...prev, { id, message, type }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const handleAddSuggestion = useCallback((text: string) => {
+    store.addSuggestion(text);
+    addToast('Suggestion added to your product summary');
+  }, [store, addToast]);
 
   const l0SelectedId = store.l0Variants.find((v) => v.selected)?.id ?? null;
   const l1SelectedId = store.l1Variants.find((v) => v.selected)?.id ?? null;
@@ -49,12 +68,23 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3">
             {store.step !== 'product-input' && (
-              <button
-                onClick={store.reset}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50"
-              >
-                Start over
-              </button>
+              <>
+                <button
+                  onClick={() => setIsSummaryOpen(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  View Summary
+                </button>
+                <button
+                  onClick={store.reset}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50"
+                >
+                  Start over
+                </button>
+              </>
             )}
             <nav className="flex gap-1">
               <button
@@ -280,6 +310,7 @@ export default function Home() {
                   feasibilityInput={store.feasibilityInput}
                   onBack={() => usePGEStore.setState({ step: 'feasibility-input' })}
                   onStartOver={store.reset}
+                  onAddSuggestion={handleAddSuggestion}
                 />
               )}
 
@@ -303,6 +334,20 @@ export default function Home() {
           <KnowledgePanel />
         </main>
       )}
+
+      {/* Product Summary Modal */}
+      <ProductSummaryModal
+        isOpen={isSummaryOpen}
+        onClose={() => setIsSummaryOpen(false)}
+        productDescription={store.productDescription}
+        userAnswers={store.userAnswers}
+        selectedDesign={store.selectedL2}
+        feasibilityInput={store.feasibilityInput}
+        suggestions={store.suggestions}
+      />
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

@@ -164,6 +164,9 @@ interface PGEStore {
   heroBannerViews: HeroBannerVariant[];
   heroBannerError: string | null;
 
+  // Summary suggestions added from feasibility result screen
+  suggestions: string[];
+
   // Actions
   setProductDescription: (desc: string) => void;
   setReferenceImage: (data: string | null, mimeType: string | null) => void;
@@ -181,6 +184,7 @@ interface PGEStore {
   updateHeroBannerView: (id: string, update: Partial<HeroBannerVariant>) => void;
   goToFeasibilityInput: () => void;
   runFeasibilityCheck: (input: FeasibilityInput) => Promise<void>;
+  addSuggestion: (text: string) => void;
   reset: () => void;
 }
 
@@ -202,6 +206,7 @@ const INITIAL: Omit<
   | 'updateHeroBannerView'
   | 'goToFeasibilityInput'
   | 'runFeasibilityCheck'
+  | 'addSuggestion'
   | 'reset'
 > = {
   step: 'product-input',
@@ -224,6 +229,7 @@ const INITIAL: Omit<
   feasibilityResult: null,
   heroBannerViews: [],
   heroBannerError: null,
+  suggestions: [],
 };
 
 export const usePGEStore = create<PGEStore>((set, get) => ({
@@ -462,6 +468,9 @@ export const usePGEStore = create<PGEStore>((set, get) => ({
       });
     }
   },
+
+  addSuggestion: (text) =>
+    set((s) => ({ suggestions: [...s.suggestions, text] })),
 
   reset: () => set({ ...INITIAL }),
 }));
