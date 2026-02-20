@@ -259,6 +259,8 @@ export interface FeasibilityAlternative {
   description: string;
   tradeoffs: string[];
   saves: string;
+  /** Image generation prompt — present when the alternative involves a different material or customisation method */
+  imagePrompt?: string;
 }
 
 export type FeasibilityVerdict = 'proceed' | 'proceed-with-caution' | 'reconsider';

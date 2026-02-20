@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import type {
   AIFeasibilityResult,
   FeasibilityDimension,
@@ -15,6 +16,7 @@ interface FeasibilityResultPanelProps {
   feasibilityInput: FeasibilityInput;
   onStartOver: () => void;
   onBack: () => void;
+  onAddToRequirement: (alternative: FeasibilityAlternative) => void;
 }
 
 // ─── Status helpers ──────────────────────────────────────────────────────────
@@ -132,44 +134,108 @@ function DimensionCard({
 
 // ─── Alternative card ────────────────────────────────────────────────────────
 
-function AlternativeCard({ alternative }: { alternative: FeasibilityAlternative }) {
+function AlternativeCard({
+  alternative,
+  onAddToRequirement,
+}: {
+  alternative: FeasibilityAlternative;
+  onAddToRequirement: (alternative: FeasibilityAlternative) => void;
+}) {
+  const [imageData, setImageData] = useState<string | null>(null);
+  const [imageMimeType, setImageMimeType] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    if (!alternative.imagePrompt) return;
+    setImageLoading(true);
+    setImageError(false);
+    fetch('/api/generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: alternative.imagePrompt }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.imageData && data.mimeType) {
+          setImageData(data.imageData);
+          setImageMimeType(data.mimeType);
+        } else {
+          setImageError(true);
+        }
+      })
+      .catch(() => setImageError(true))
+      .finally(() => setImageLoading(false));
+  }, [alternative.imagePrompt]);
+
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 rounded-lg bg-blue-100 p-2">
-          <svg
-            className="h-4 w-4 text-blue-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13 7l5 5m0 0l-5 5m5-5H6"
+    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+      {/* Generated image for material/customisation alternatives */}
+      {alternative.imagePrompt && (
+        <div className="w-full h-40 bg-gray-100 flex items-center justify-center overflow-hidden">
+          {imageLoading && (
+            <div className="flex flex-col items-center gap-2 text-gray-400">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-blue-500" />
+              <span className="text-xs">Generating preview…</span>
+            </div>
+          )}
+          {!imageLoading && imageData && imageMimeType && (
+            <img
+              src={`data:${imageMimeType};base64,${imageData}`}
+              alt={alternative.title}
+              className="w-full h-full object-cover"
             />
-          </svg>
-        </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-semibold text-gray-900">{alternative.title}</h4>
-          <p className="mt-0.5 text-xs text-gray-600">{alternative.description}</p>
-          {alternative.tradeoffs.length > 0 && (
-            <ul className="mt-2 space-y-0.5">
-              {alternative.tradeoffs.map((t, i) => (
-                <li key={i} className="flex items-start gap-1.5 text-xs text-gray-500">
-                  <span className="flex-shrink-0 text-gray-400">·</span>
-                  {t}
-                </li>
-              ))}
-            </ul>
           )}
-          {alternative.saves && (
-            <p className="mt-2 text-xs font-medium text-green-700 bg-green-50 rounded px-2 py-1 inline-block">
-              {alternative.saves}
-            </p>
+          {!imageLoading && imageError && (
+            <span className="text-xs text-gray-400">Preview unavailable</span>
           )}
         </div>
+      )}
+
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 rounded-lg bg-blue-100 p-2">
+            <svg
+              className="h-4 w-4 text-blue-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13 7l5 5m0 0l-5 5m5-5H6"
+              />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-semibold text-gray-900">{alternative.title}</h4>
+            <p className="mt-0.5 text-xs text-gray-600">{alternative.description}</p>
+            {alternative.tradeoffs.length > 0 && (
+              <ul className="mt-2 space-y-0.5">
+                {alternative.tradeoffs.map((t, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-xs text-gray-500">
+                    <span className="flex-shrink-0 text-gray-400">·</span>
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {alternative.saves && (
+              <p className="mt-2 text-xs font-medium text-green-700 bg-green-50 rounded px-2 py-1 inline-block">
+                {alternative.saves}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={() => onAddToRequirement(alternative)}
+          className="mt-3 w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors text-center"
+        >
+          + Add to Requirement
+        </button>
       </div>
     </div>
   );
@@ -182,6 +248,7 @@ export function FeasibilityResultPanel({
   feasibilityInput,
   onStartOver,
   onBack,
+  onAddToRequirement,
 }: FeasibilityResultPanelProps) {
   const levelCfg = LEVEL_CONFIG[result.classificationLevel];
   const verdictCfg = VERDICT_CONFIG[result.overallVerdict];
@@ -271,7 +338,7 @@ export function FeasibilityResultPanel({
           </h3>
           <div className="space-y-3">
             {result.alternatives.map((alt) => (
-              <AlternativeCard key={alt.id} alternative={alt} />
+              <AlternativeCard key={alt.id} alternative={alt} onAddToRequirement={onAddToRequirement} />
             ))}
           </div>
         </div>

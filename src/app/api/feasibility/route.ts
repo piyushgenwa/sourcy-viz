@@ -106,7 +106,8 @@ You must output a JSON object with EXACTLY this structure:
       "title": "<Short title for the alternative approach>",
       "description": "<What the buyer could do instead or as a simpler variant>",
       "tradeoffs": ["<tradeoff 1>", "<tradeoff 2>"],
-      "saves": "<What this alternative saves — cost, time, risk>"
+      "saves": "<What this alternative saves — cost, time, risk>",
+      "imagePrompt": "<Only include this field when the alternative involves a different material, surface finish, or customisation technique. Write a concise product image generation prompt (1-2 sentences) describing the product with the alternative applied — e.g. 'A leather tote bag with embossed logo on the front panel, matte black finish, studio lighting.' Omit this field entirely for alternatives that only change MOQ, price, or timeline.>"
     }
   ],
   "overallVerdict": <"proceed"|"proceed-with-caution"|"reconsider">,

@@ -10,7 +10,7 @@ import { KnowledgePanel } from '@/components/knowledge-base/knowledge-panel';
 import { FeasibilityInputPanel } from '@/components/feasibility/feasibility-input-panel';
 import { FeasibilityResultPanel } from '@/components/feasibility/feasibility-result-panel';
 import { HeroBannerPanel } from '@/components/pge/hero-banner-panel';
-import type { GeneratedImageVariant } from '@/types/product';
+import type { GeneratedImageVariant, FeasibilityAlternative } from '@/types/product';
 
 type Tab = 'flow' | 'knowledge';
 
@@ -280,6 +280,14 @@ export default function Home() {
                   feasibilityInput={store.feasibilityInput}
                   onBack={() => usePGEStore.setState({ step: 'feasibility-input' })}
                   onStartOver={store.reset}
+                  onAddToRequirement={(alt: FeasibilityAlternative) => {
+                    usePGEStore.setState((s) => ({
+                      step: 'feasibility-input',
+                      feasibilityInput: s.feasibilityInput
+                        ? { ...s.feasibilityInput, customizationDescription: alt.description }
+                        : null,
+                    }));
+                  }}
                 />
               )}
 
