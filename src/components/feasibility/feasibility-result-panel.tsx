@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type {
   AIFeasibilityResult,
   FeasibilityDimension,
@@ -15,6 +16,7 @@ interface FeasibilityResultPanelProps {
   feasibilityInput: FeasibilityInput;
   onStartOver: () => void;
   onBack: () => void;
+  onAddSuggestion?: (text: string) => void;
 }
 
 // ─── Status helpers ──────────────────────────────────────────────────────────
@@ -182,9 +184,18 @@ export function FeasibilityResultPanel({
   feasibilityInput,
   onStartOver,
   onBack,
+  onAddSuggestion,
 }: FeasibilityResultPanelProps) {
+  const [suggestionText, setSuggestionText] = useState('');
   const levelCfg = LEVEL_CONFIG[result.classificationLevel];
   const verdictCfg = VERDICT_CONFIG[result.overallVerdict];
+
+  const handleAddSuggestion = () => {
+    const trimmed = suggestionText.trim();
+    if (!trimmed || !onAddSuggestion) return;
+    onAddSuggestion(trimmed);
+    setSuggestionText('');
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -273,6 +284,36 @@ export function FeasibilityResultPanel({
             {result.alternatives.map((alt) => (
               <AlternativeCard key={alt.id} alternative={alt} />
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add Suggestion */}
+      {onAddSuggestion && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <p className="mb-2 text-sm font-semibold text-gray-700">Add a suggestion to summary</p>
+          <p className="mb-3 text-xs text-gray-400">
+            Note a sourcing idea, constraint, or preference — it will be saved to your product summary.
+          </p>
+          <textarea
+            value={suggestionText}
+            onChange={(e) => setSuggestionText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddSuggestion();
+            }}
+            placeholder="e.g. Prefer suppliers with FSC certification, or consider unbranded version for lower MOQ…"
+            rows={3}
+            className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          />
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-xs text-gray-400">⌘↵ to submit</span>
+            <button
+              onClick={handleAddSuggestion}
+              disabled={!suggestionText.trim()}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Add to Summary
+            </button>
           </div>
         </div>
       )}
